@@ -5,6 +5,8 @@ import os
 import cv2
 import sys
 import argparse
+import gc
+import tensorflow as tf
 
 
 
@@ -114,32 +116,110 @@ class CocoLoader():
         self._category = category
 
         # initialize COCO api from ann_file.
-        coco = COCO(self._ann_file)
+        self.coco = COCO(self._ann_file)
 
         # get keypoints label
-        person_category = coco.loadCats(coco.getCatIds(['person']))[0]
+        person_category = self.coco.loadCats(self.coco.getCatIds(['person']))[0]
         self._KEYPOINTS_LABEL = person_category['keypoints']
-        print(self._KEYPOINTS_LABEL)
-        exit()
         self._SKELETON = person_category['skeleton']
 
         # load category id from variable 'category'
-        self._cat_ids = sorted(coco.getCatIds(catNms=self._category))
-        self._img_ids = sorted(coco.getImgIds(catIds=self._cat_ids))
+        self._cat_ids = sorted(self.coco.getCatIds(catNms=self._category))
+        self._img_ids = sorted(self.coco.getImgIds(catIds=self._cat_ids))
 
-        # load image one by one from img ids.
-        print('load images and annotations...')
-        self._load_imgs_and_anns(coco)
+        self._single_person_ann_ids = self.coco.getAnnIds(catIds=self._cat_ids, iscrowd=None)
+        # 人のアノテーションを取り出す。
+        self._single_person_anns = self.coco.loadAnns(self._single_person_ann_ids)
+
+        self.keypoint_anns = []
+        # キーポイントのアノテーションがされているのを取り出す
+        for ann in self._single_person_anns:
+            if ann['num_keypoints'] > 0:
+                self.keypoint_anns.append(ann)
+        print(len(self.keypoint_anns))
+        print(self.keypoint_anns[0])
+
+        # create image reader
+        self.create_img_reader()
+
+
+
+
+
+        # load image information and annotations from img ids.
+        # print('load image information and annotations...')
+        # self._load_imgs_and_anns(coco)
 
         # parse annotation and crop to single person image.
-        print('parse annotations and crop images...')
-        self._parse_and_crop()
+        # print('parse annotations and crop images...')
+        # self._parse_and_crop()
+        gc.collect()
 
         print('\ncomplete!!')
-        print('length of single person images: {}'.format(len(self._crop_imgs)))
+        print('length of single person images: {}'.format(len(self.keypoint_anns)))
+
 
     def __len__(self):
-        return len(self._crop_imgs)
+        return len(self.keypoint_anns)
+
+
+    def get_img_inf(self, img_id):
+        """
+        get image information from img_id.
+
+        Args:
+            img_id: image id.
+        Return:
+            image information.
+        """
+        img_information = self.coco.loadImgs(img_id)[0]
+
+        return img_information
+
+
+    def create_img_reader(self):
+        with tf.Graph().as_default():
+            self._decode_path = tf.placeholder(dtype=tf.string)
+            self._jpeg_file = tf.read_file(self._decode_path)
+            self._session = tf.Session()
+
+            self._decode = tf.image.decode_jpeg(self._jpeg_file,
+                                                channels=3)
+
+            # bbox => [top_left_x, top_left_y, width, height]
+            self._bbox = tf.placeholder(dtype=tf.int32, shape=(4))
+
+            self._cropped_img = tf.image.crop_to_bounding_box(
+                image=self._decode,
+                offset_height=self._bbox[1],
+                offset_width=self._bbox[0],
+                target_height=self._bbox[3],
+                target_width=self._bbox[2]
+            )
+
+
+    def decode_image_and_crop(self, image_data, bbox):
+        """
+        Decodes the image data string.
+
+        Args:
+            image_data: string of image data.
+            bbox: bounding box. [top_left_x, top_left_y, width, height].
+
+        Return:
+            Cropped image.
+
+        Raises:
+            ValueError:  value of image channels not supperted.
+        """
+        image = self._session.run(self._cropped_img,
+                                  feed_dict={self._decode_path: image_data,
+                                             self._bbox: bbox})
+        if len(image.shape) != 3 or image.shape[2] not in (1, 3):
+            raise ValueError('the image channels not supported')
+
+        return image
+
 
     def _load_imgs_and_anns(self, coco):
         """
@@ -151,7 +231,8 @@ class CocoLoader():
         Return:
             none.
         """
-        self._imgs = []
+        self.imgs = []
+        self.num_ann = 0
         # load image one by one from img ids.
         # and append to self._imgs.
         for i, img_id in enumerate(self._img_ids):
@@ -160,10 +241,19 @@ class CocoLoader():
             # get annotations is specified category ids.
             ann_ids = coco.getAnnIds(imgIds=img_id, catIds=self._cat_ids, iscrowd=None)
             anns = coco.loadAnns(ann_ids)
+            # keypointがあるアノテーションだけを入れるリスト
+            have_key_anns = []
+            for ann in anns:
+                if ann['num_keypoints'] > 0:
+                    have_key_anns.append(ann)
+                    self.num_ann += 1
+
             temp_dict = {}
             temp_dict['img'] = img
-            temp_dict['anns'] = anns
-            self._imgs.append(temp_dict)
+            temp_dict['anns'] = have_key_anns
+            self.imgs.append(temp_dict)
+        print('num_ann: {}'.format(self.num_ann))
+        exit()
 
     def _parse_and_crop(self):
         """
@@ -198,6 +288,7 @@ class CocoLoader():
                     # res = self.draw_keypoints(cropped_img, relocate_keypoints)
                     # plt.imshow(res)
                     # plt.show()
+        self._imgs = None
 
 
     def _draw_keypoints(self, img, keypoints):
