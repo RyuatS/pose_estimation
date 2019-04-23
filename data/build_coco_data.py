@@ -156,25 +156,23 @@ def _convert_dataset(loader):
 
                 cropped_img = loader.decode_image_and_crop(img_path, bbox)
 
-                # ======================= below incomplete =============================== # 
+                heatmaps = np.zeros((cropped_img.shape[0], cropped_img.shape[1]))
 
-
-                heatmaps = np.zeros((img.shape[0], img.shape[1]))
                 # create heatmap
                 for key_index in label_to_heatmap:
                     key = keypoint_list[key_index]
                     if key[2] == 0:
-                        heatmap = np.zeros((img.shape[0], img.shape[1]))
+                        heatmap = np.zeros((cropped_img.shape[0], cropped_img.shape[1]))
                     else:
-                        heatmap = helper.create_heatmap(img, key[:2], sigma=1)
+                        heatmap = helper.create_heatmap(cropped_img, key[:2], sigma=1)
                     heatmaps = np.dstack((heatmaps, heatmap))
 
-                heatmaps = heatmaps[:,:,1:]
-                # create tf example
-                example = convert_tfrecord.image_heatmap_to_tfexample(
-                    img, heatmaps
-                )
-                tfrecord_writer.write(example.SerializeToString())
+                    example = convert_tfrecord.image_heatmap_to_tfexample(
+                        cropped_img, heatmaps
+                    )
+                    tfrecord_writer.write(example.SerializeToString())
+                # ======================= below incomplete =============================== #
+
         sys.stdout.write('\nComplete!!')
         sys.stdout.flush()
 
