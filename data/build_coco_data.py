@@ -18,6 +18,8 @@ This dataset is expected to have the following directory structure:
     + cocodevkit
       + tfrecord
       - coco_helper.py
+    - helper.py
+
 
 Image Directory:
   /home/user/coco
@@ -26,13 +28,11 @@ Annotation file:
   /home/user/coco/annotations/person_keypoints_{}.json
   {}: train2017 or val2017 or test2017
 
-
 This script converts data into shrded data files and save at tfrecord folder.
 
 The Example proto contains the following fields:
   image/filename: image filename.
   image/encoded: encoded image content.
-  image/format: image file format.
   image/height: image height.
   image/width: image width.
   image/channels: image channles
@@ -49,6 +49,9 @@ import convert_tfrecord
 import helper
 from cocodevkit.coco_helper import CocoLoader
 import convert_tfrecord
+import numpy as np
+import convert_tfrecord
+import matplotlib.pyplot as plt
 
 import os
 FLAGS = tf.app.flags.FLAGS
@@ -66,8 +69,8 @@ tf.app.flags.DEFINE_string('output_dir',
                            './cocodevkit/tfrecord',
                            'Path to save converted SSTable of TensorFlow examples.')
 
-tf.app.flags.DEFINE_string('include_keypoint',
-                           'all',
+tf.app.flags.DEFINE_enum('include_keypoint',
+                           'all', ['all', 'upper'],
                            'which do you include keypoint label. all or upper.')
 
 
@@ -94,7 +97,10 @@ _KEYPOINTS_LABEL = [
     'left_ankle',       # 15
     'right_ankle'       # 16
 ]
-_UPPER_BODY_LABEL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+# this indexes correspond to up keypoint_label.
+_ALL_BODY_LABEL = [i for i in range(17)]
+_UPPER_BODY_LABEL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
 
 def _convert_dataset(loader):
@@ -107,12 +113,21 @@ def _convert_dataset(loader):
     Raises:
         RuntimeError: If keypoint_location is out of image height or image width.
     """
-    imgs_and_anns = loader._crop_imgs
-    dataset = os.path.basename(loader._img_dir).split('.')[0]
+
+    dataset = os.path.basename(FLAGS.image_dir).split('.')[0]
     sys.stdout.write('Processing ' + dataset + '\n')
-    num_images = len(imgs_and_anns)
+    num_images = len(loader)
     num_per_shard = int(math.ceil(num_images / float(_NUM_SHARDS)))
 
+    # どこまでのキーポイントを含むかで、キーポイントのラベルをヒートマップに変換する数を変える
+    # all-> すべてのキーポイントをヒートマップに変換する
+    # upper -> right_wristまでをヒートマップに変換する
+    if FLAGS.include_keypoint == 'all':
+        label_to_heatmap = _ALL_BODY_LABEL
+    else:
+        label_to_heatmap = _UPPER_BODY_LABEL
+
+    keypoint_anns = loader.keypoint_anns
     for shard_id in range(_NUM_SHARDS):
         output_filename = os.path.join(
             FLAGS.output_dir,
@@ -128,20 +143,36 @@ def _convert_dataset(loader):
                 ))
                 sys.stdout.flush()
 
-                # get the img and keypoint
-                img = imgs_and_anns[i]['img']
-                keypoint = imgs_and_anns[i]['keypoint']
-                height, width, channels = img.shape
+                # get the img information from ann['image_id']
+                ann = keypoint_anns[i]
+                img_id = ann['image_id']
+                img_information = loader.get_img_inf(img_id)
 
+                img_path = os.path.join(
+                    FLAGS.image_dir, img_information['file_name'])
+                keypoint = ann['keypoints']
+                keypoint_list = [keypoint[offset:offset+3] for offset in range(0, len(keypoint), 3)]
+                bbox = ann['bbox']
+
+                cropped_img = loader.decode_image_and_crop(img_path, bbox)
+
+                # ======================= below incomplete =============================== # 
+
+
+                heatmaps = np.zeros((img.shape[0], img.shape[1]))
                 # create heatmap
-                if FLAGS.include_keypoint == 'all':
-                    pass
-                elif FLAGS.include_keypoint == 'upper':
-                    pass
-                else:
-                    raise ValueError("{} must be 'all' or 'upper'. see help.".format(FLAGS.include_keypoint))
-                example = build_data.convert_tfrecotd(
+                for key_index in label_to_heatmap:
+                    key = keypoint_list[key_index]
+                    if key[2] == 0:
+                        heatmap = np.zeros((img.shape[0], img.shape[1]))
+                    else:
+                        heatmap = helper.create_heatmap(img, key[:2], sigma=1)
+                    heatmaps = np.dstack((heatmaps, heatmap))
 
+                heatmaps = heatmaps[:,:,1:]
+                # create tf example
+                example = convert_tfrecord.image_heatmap_to_tfexample(
+                    img, heatmaps
                 )
                 tfrecord_writer.write(example.SerializeToString())
         sys.stdout.write('\nComplete!!')
