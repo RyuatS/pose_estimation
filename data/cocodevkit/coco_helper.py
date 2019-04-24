@@ -340,3 +340,20 @@ if __name__ == '__main__':
     dataType = args.data_type
     annFile = '{}/annotations/person_keypoints_{}.json'.format(dataDir, dataType)
     loader = CocoLoader(os.path.join(dataDir, dataType), annFile)
+
+    anns = loader.keypoint_anns
+
+    for ann in anns:
+        img_id = ann['image_id']
+        img_information = loader.get_img_inf(img_id)
+
+        img_path = os.path.join(
+            dataDir, 'val2017', img_information['file_name']
+        )
+
+        img = plt.imread(img_path)
+
+        keypoint = ann['keypoints']
+        res = loader._draw_keypoints(img, keypoint)
+        plt.imshow(res)
+        plt.show()
