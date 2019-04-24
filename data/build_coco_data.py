@@ -164,14 +164,14 @@ def _convert_dataset(loader):
                     if key[2] == 0:
                         heatmap = np.zeros((cropped_img.shape[0], cropped_img.shape[1]))
                     else:
-                        heatmap = helper.create_heatmap(cropped_img, key[:2], sigma=1)
-                    heatmaps = np.dstack((heatmaps, heatmap))
+                        heatmap = helper.create_heatmap(cropped_img, key[:2], sigma=10)
 
-                    example = convert_tfrecord.image_heatmap_to_tfexample(
-                        cropped_img, heatmaps
-                    )
-                    tfrecord_writer.write(example.SerializeToString())
-                # ======================= below incomplete =============================== #
+                    heatmaps = np.dstack((heatmaps, heatmap))
+                heatmaps = heatmaps[: ,:, 1:]
+                example = convert_tfrecord.image_heatmap_to_tfexample(
+                    cropped_img, heatmaps
+                )
+                tfrecord_writer.write(example.SerializeToString())
 
         sys.stdout.write('\nComplete!!')
         sys.stdout.flush()
