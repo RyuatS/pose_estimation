@@ -1,1 +1,3 @@
 lib/temp/
+data/tfrecord/
+data/cocodevkit/tfrecord/
