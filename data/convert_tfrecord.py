@@ -16,7 +16,9 @@ The Example proto contains the following fields:
   image/height: image height.
   image/width: image width.
   image/channels: image channles
-  image/heatmap: keypoint heatmap
+  image/key_x_list: keypoint locations x list.
+  image/key_y_list: keypoint locations y list.
+  image/key_v_list: keypoint visible list.
 """
 
 import tensorflow as tf

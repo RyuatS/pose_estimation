@@ -36,10 +36,9 @@ The Example proto contains the following fields:
   image/height: image height.
   image/width: image width.
   image/channels: image channles
-  image/part/x: keypoint locations x
-  image/part/y: keypoint locations y
-  image/part/v: keypoint locations visible
-  image/heatmap: keypoint heatmap
+  image/key_x_list: keypoint locations x
+  image/key_y_list: keypoint locations y
+  image/key_v_list: keypoint locations visible
 """
 
 import tensorflow as tf
@@ -163,7 +162,7 @@ def _convert_dataset(loader):
                 key_x_list = []
                 key_y_list = []
                 key_v_list = []
-                for key_index in len(keypoints_list):
+                for key_index in range(len(keypoint_list)):
                     key = keypoint_list[key_index]
                     key[0] = key[0] - bbox_x
                     key[1] = key[1] - bbox_y
