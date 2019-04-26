@@ -52,6 +52,7 @@ import convert_tfrecord
 import numpy as np
 import convert_tfrecord
 import matplotlib.pyplot as plt
+import cv2
 
 import os
 FLAGS = tf.app.flags.FLAGS
@@ -100,8 +101,9 @@ _KEYPOINTS_LABEL = [
 
 # this indexes correspond to up keypoint_label.
 _ALL_BODY_LABEL = [i for i in range(17)]
+_NUM_ALL_BODY_KEYPOINTS = 17
 _UPPER_BODY_LABEL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-
+_NUM_UPPER_BODY_KEYPOINTS = 13
 
 def _convert_dataset(loader):
     """
@@ -153,27 +155,46 @@ def _convert_dataset(loader):
                 keypoint = ann['keypoints']
                 keypoint_list = [keypoint[offset:offset+3] for offset in range(0, len(keypoint), 3)]
                 bbox = ann['bbox']
+                bbox_x = bbox[0]
+                bbox_y = bbox[1]
 
                 cropped_img = loader.decode_image_and_crop(img_path, bbox)
 
-                heatmaps = np.zeros((cropped_img.shape[0], cropped_img.shape[1]))
-
-                # create heatmap
-                for key_index in label_to_heatmap:
+                key_x_list = []
+                key_y_list = []
+                key_v_list = []
+                for key_index in len(keypoints_list):
                     key = keypoint_list[key_index]
-                    if key[2] == 0:
-                        heatmap = np.zeros((cropped_img.shape[0], cropped_img.shape[1]))
-                    else:
-                        heatmap = helper.create_heatmap(cropped_img, key[:2], sigma=10)
+                    key[0] = key[0] - bbox_x
+                    key[1] = key[1] - bbox_y
 
-                    heatmaps = np.dstack((heatmaps, heatmap))
-                heatmaps = heatmaps[: ,:, 1:]
-                example = convert_tfrecord.image_heatmap_to_tfexample(
-                    cropped_img, heatmaps
+                    key_x_list.append(key[0])
+                    key_y_list.append(key[1])
+                    key_v_list.append(key[2])
+                example = convert_tfrecord.image_keypoint_to_tfexample(
+                    cropped_img, key_x_list, key_y_list, key_v_list
                 )
+                # heatmaps = np.zeros((cropped_img.shape[0], cropped_img.shape[1]))
+                #
+                # # create heatmap
+                # for key_index in label_to_heatmap:
+                #     key = keypoint_list[key_index]
+                #     if key[2] == 0:
+                #         heatmap = np.zeros((cropped_img.shape[0], cropped_img.shape[1]))
+                #     else:
+                #         # After cropping, fix keypoint location
+                #         key[0] = key[0] - bbox_x
+                #         key[1] = key[1] - bbox_y
+                #         heatmap = helper.create_heatmap(cropped_img, key[:2], sigma=10)
+                #
+                #     heatmaps = np.dstack((heatmaps, heatmap))
+                # heatmaps = heatmaps[: ,:, 1:]
+                # example = convert_tfrecord.image_heatmap_to_tfexample(
+                #     cropped_img, heatmaps
+                # )
                 tfrecord_writer.write(example.SerializeToString())
 
-        sys.stdout.write('\nComplete!!')
+        sys.stdout.write('\nComplete!!\n')
         sys.stdout.flush()
 
 

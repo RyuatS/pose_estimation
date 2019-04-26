@@ -92,3 +92,38 @@ def image_heatmap_to_tfexample(image_data, heatmap):
         'image/heatmap': _float_list_feature(flatten_heatmap),
         'image/heatmap/channels': _int64_list_feature([heatmap_channels])
     }))
+
+
+def image_keypoint_to_tfexample(image_data, key_x_list, key_y_list, key_v_list):
+    """
+    Converts one image/keypoints pair to tf example.
+
+    Args:
+        image_data: image. numpy array.
+        key_x_list: list. keypoint x location list. [x1, x2, ...].
+                    x1 is correspond to y1. In other words, first keypoint location is (x1, y1).
+        key_y_list: list. keypoint y location list. [y1, y2, ...].
+        key_v_list: list. keypoint visible list. [v1, v2, ...].
+    Return:
+        tf example of one image/keypoints pair.
+    """
+
+    if len(image_data.shape) != 3:
+        raise ValueError('image_data has not 3-dimentions => image_data.shape: {}'.format(image_data.shape))
+
+    height, width, channels = image_data.shape
+    flatten_img = image_data.ravel().tostring()
+
+    key_x_list = np.array(key_x_list, dtype=np.int64)
+    key_y_list = np.array(key_y_list, dtype=np.int64)
+    key_v_list = np.array(key_v_list, dtype=np.int64)
+
+    return tf.train.Example(features=tf.train.Features(feature={
+        'image/encoded': _bytes_list_feature([flatten_img]),
+        'image/height': _int64_list_feature([height]),
+        'image/width': _int64_list_feature([width]),
+        'image/channels': _int64_list_feature([channels]),
+        'image/key_x_list':  _int64_list_feature(key_x_list),
+        'image/key_y_list': _int64_list_feature(key_y_list),
+        'image/key_v_list': _int64_list_feature(key_v_list)
+    }))
