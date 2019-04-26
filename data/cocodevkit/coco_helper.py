@@ -134,10 +134,12 @@ class CocoLoader():
         self.keypoint_anns = []
         # キーポイントのアノテーションがされているのを取り出す
         for ann in self._single_person_anns:
-            if ann['num_keypoints'] > 0:
+            if ann['num_keypoints'] > 13:
+                bbox = ann['bbox']
+                if bbox[2] < 100 or bbox[3] < 100:
+                    continue
                 self.keypoint_anns.append(ann)
         print(len(self.keypoint_anns))
-        print(self.keypoint_anns[0])
 
         # create image reader
         self.create_img_reader()
