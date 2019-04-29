@@ -103,11 +103,11 @@ class Dataset(object):
         channels = parsed_features['image/channels']
 
         image = tf.reshape(tf.decode_raw(parsed_features['image/encoded'], tf.uint8),
-                           [height, width, channels])
+                           [height, width, 3])
         image = tf.image.resize_images(image, self.img_size)
         image = tf.cast(image, tf.uint8)
 
-        heatmaps = tf.reshape(parsed_features['image/heatmap'], [height, width, 17])
+        heatmaps = tf.reshape(parsed_features['image/heatmap'], [256, 192, 17])
         sample = {
             'image': image,
             'height': height,
