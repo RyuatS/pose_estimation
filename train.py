@@ -18,6 +18,7 @@ import numpy as np
 # my script
 from lib.utils import helper
 from data.dataset_generator import Dataset
+from lib.models.hourglass import Hourglass
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -118,9 +119,19 @@ def main(unused_argv):
     iterator = dataset.get_one_shot_iterator()
 
     mini_batch = iterator.get_next()
+    image = mini_batch['image']
+    heatmaps = mini_batch['heatmaps']
+    image = tf.to_float(image)
+    model = Hourglass(is_use_bn=True, num_keypoints=17)
+    d_logits = model.build(image, 'Hourglass', is_training=True, visualize=True)
+
+
+
 
     config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
     with tf.Session(config=config) as sess:
+        sess.run(tf.global_variables_initializer())
+
 
         for train_count in range(FLAGS.steps):
             input_data, labels = get_imgs_and_heatmap(sess, mini_batch, input_size)
