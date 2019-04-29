@@ -17,7 +17,7 @@ import tensorflow as tf
 import os
 from tensorflow.contrib.distributions import MultivariateNormalDiag
 import numpy as np
-
+import math
 
 class Dataset(object):
     """Respresents input dataset for pose estimation models."""
@@ -91,7 +91,7 @@ class Dataset(object):
             # 'image/key_v_list':
             #     tf.FixedLenFeature((17), tf.int64, default_value=[0 for i in range(17)])
             'image/heatmap':
-                tf.FixedLenFeature((256*192*17), tf.float32, default_value=np.zeros((256, 192))),
+                tf.FixedLenFeature((256*192*17), tf.float32, default_value=np.zeros(256*192*17)),
             'image/heatmap/channels':
                 tf.FixedLenFeature((), tf.int64, default_value=0)
 
@@ -185,8 +185,18 @@ if __name__ == '__main__':
     with tf.Session() as sess:
         result = sess.run(sample)
 
-    print(result['image'].shape)
-    for i in result['image']:
-        print(i)
-        plt.imshow(i)
+    batch_heat = result['heatmaps']
+
+    for heats in batch_heat:
+        iter_num = math.ceil(heats.shape[2] / 3)
+
+        for i in range(iter_num):
+            heat = heats[..., i*3:i*3+3]
+            plt.subplot(2, 3, i+1)
+
+            if heat.shape[2] < 3:
+                dim = 3 - heat.shape[2]
+                zero_dim_padding = np.zeros((heat.shape[0], heat.shape[1], dim))
+                heat = np.dstack((heat, zero_dim_padding))
+            plt.imshow(heat)
         plt.show()
