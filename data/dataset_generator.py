@@ -84,29 +84,38 @@ class Dataset(object):
                 tf.FixedLenFeature((), tf.int64, default_value=0),
             'image/channels':
                 tf.FixedLenFeature((), tf.int64, default_value=0),
-            'image/key_x_list':
-                tf.FixedLenFeature((17), tf.int64, default_value=[0 for i in range(17)]),
-            'image/key_y_list':
-                tf.FixedLenFeature((17), tf.int64, default_value=[0 for i in range(17)]),
-            'image/key_v_list':
-                tf.FixedLenFeature((17), tf.int64, default_value=[0 for i in range(17)])
+            # 'image/key_x_list':
+            #     tf.FixedLenFeature((17), tf.int64, default_value=[0 for i in range(17)]),
+            # 'image/key_y_list':
+            #     tf.FixedLenFeature((17), tf.int64, default_value=[0 for i in range(17)]),
+            # 'image/key_v_list':
+            #     tf.FixedLenFeature((17), tf.int64, default_value=[0 for i in range(17)])
+            'image/heatmap':
+                tf.FixedLenFeature((256*192*17), tf.float32, default_value=np.zeros((256, 192))),
+            'image/heatmap/channels':
+                tf.FixedLenFeature((), tf.int64, default_value=0)
+
         }
 
         parsed_features = tf.parse_single_example(example_proto, features)
         width = parsed_features['image/width']
         height = parsed_features['image/height']
         channels = parsed_features['image/channels']
+
         image = tf.reshape(tf.decode_raw(parsed_features['image/encoded'], tf.uint8),
                            [height, width, channels])
         image = tf.image.resize_images(image, self.img_size)
         image = tf.cast(image, tf.uint8)
+
+        heatmaps = tf.reshape(parsed_features['image/heatmap'], [height, width, 17])
         sample = {
             'image': image,
             'height': height,
             'width': width,
-            'key_x': parsed_features['image/key_x_list'],
-            'key_y': parsed_features['image/key_y_list'],
-            'key_v': parsed_features['image/key_v_list']
+            # 'key_x': parsed_features['image/key_x_list'],
+            # 'key_v': parsed_features['image/key_v_list'],
+            # 'key_y': parsed_features['image/key_y_list'],
+            'heatmaps': heatmaps
         }
 
 

@@ -189,6 +189,8 @@ def _convert_dataset(loader):
                     heatmaps = np.dstack((heatmaps, heatmap))
                 heatmaps = heatmaps[: ,:, 1:]
                 cropped_img = cv2.resize(cropped_img, (192, 256))
+                print(heatmaps.shape)
+                exit()
                 example = convert_tfrecord.image_heatmap_to_tfexample(
                     cropped_img, heatmaps
                 )
