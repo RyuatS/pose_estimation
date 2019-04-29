@@ -167,6 +167,7 @@ if __name__ == '__main__':
 
     """
     import matplotlib.pyplot as plt
+    import cv2
     tfrecord_dir = os.path.join('cocodevkit', 'tfrecord')
     data_type = 'val2017'
     batch_size = 32
@@ -186,17 +187,23 @@ if __name__ == '__main__':
         result = sess.run(sample)
 
     batch_heat = result['heatmaps']
-
-    for heats in batch_heat:
+    for i, heats in enumerate(batch_heat):
         iter_num = math.ceil(heats.shape[2] / 3)
-
-        for i in range(iter_num):
-            heat = heats[..., i*3:i*3+3]
-            plt.subplot(2, 3, i+1)
-
-            if heat.shape[2] < 3:
-                dim = 3 - heat.shape[2]
-                zero_dim_padding = np.zeros((heat.shape[0], heat.shape[1], dim))
-                heat = np.dstack((heat, zero_dim_padding))
-            plt.imshow(heat)
+        img = result['image'][i]
+        copy_img = np.copy(img)
+        # for i in range(iter_num):
+        #     heat = heats[..., i*3:i*3+3]
+        #     plt.subplot(2, 3, i+1)
+        #     heat = heat * 255 / np.max(heat)
+        #     if heat.shape[2] < 3:
+        #         dim = 3 - heat.shape[2]
+        #         zero_dim_padding = np.zeros((heat.shape[0], heat.shape[1], dim))
+        #         heat = np.dstack((heat, zero_dim_padding))
+        #     plt.imshow(heat)
+        for i in range(heats.shape[2]):
+            heat = heats[..., i]
+            heat = heat * 255 / np.max(heat) + 0.001
+            heat = np.dstack([heat, heat, heat]).astype(np.uint8)
+            copy_img = cv2.addWeighted(copy_img, 1, heat, 0.5, 1.0)
+        plt.imshow(copy_img)
         plt.show()
