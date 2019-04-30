@@ -473,14 +473,12 @@ class ParentFCN:
                     net_name = self.model_structure[key]['net']
                     checkpoint_path = self.model_structure[key]['checkpoint_path']
 
-
                     with slim.arg_scope(resnet_v1.resnet_arg_scope()):
                         _, end_points = resnet_v1.resnet_v1_101(pre_layer, 1000, is_training=is_training)
                     conv_out = end_points["resnet_v1_101/block3"]
 
                     var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='resnet_v1_101')
-                    print('var_list: ')
-                    print(var_list)
+
                     # calculate number of parameters.
                     num_param = 0
                     for var in var_list:
@@ -600,10 +598,47 @@ class ParentFCN:
                 weight_decay = tf.nn.l2_loss(self.weights[key], name=key+'l2_loss')
                 weight_decay_sum += weight_decay
 
-            loss_with_weight_decay += weight_decay_sum
+            loss_with_weight_decay += decay_rate * weight_decay_sum
 
         return loss, loss_with_weight_decay
 
+
+    def get_train_op(self, predict, target, scope, learning_rate=0.001, use_weight_decay=True, decay_rate=0.005,  is_training_backbone=False):
+        """
+        return train operater.
+        This function do following steps.
+        1) Calculate loss. used argument => predict, target, use_weight_decay nad decay_rate.
+        2) Create optimizer and train operater. used argument => learning_rate, is_training_backbone.
+        3) Return train operater.
+
+        Args:
+            predict: 4-dimention tensor. Model's predict.
+            target: 4-dimention tensor. Target.
+            learning_rate: float. Learning rate for optimizer.
+            use_weight_decay: boolean. Whether you use weight decay when training.
+            decay_rate: float. Decay rate. If you use weight decay, this is used.
+            is_training_backbone: boolean. Whether you train backbone net.
+
+        Returns:
+            loss without weight decay and train operater.
+        """
+
+        # 1) calculate loss
+        loss, loss_with_weight_decay = self.loss(predict, target, use_weight_decay, decay_rate)
+        loss_with_weight_decay /= target.get_shape().as_list()[3]
+        loss /= target.get_shape().as_list()[3]
+
+        # create trainable variable list
+        trainable = tf.trainable_variables()
+        # train_var_list = [var for var in trainable if 'resnet_v1_101' not in var.name]
+        # for var in train_var_list:
+        #     print(var)
+        # train_var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
+        # 2) create optimizer and train op
+        train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_with_weight_decay, var_list=trainable)
+
+        # 3) return
+        return loss, train_op
 
     def train(self, input, target, is_training, deconv_learning_rate=0.001, conv_learning_rate=0.1, decay_rate=0.005, visualize=False):
         """

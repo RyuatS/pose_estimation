@@ -17,7 +17,7 @@ class Hourglass(ParentFCN):
         self.model_structure = {
             # input > 256x192
             # backbone net 8x6x1024
-            'backbone1': {'net': 'resnet', 'checkpoint_path': 'checkpoints/resnet_v1_101.ckpt'},
+            'backbone1': {'net': 'resnet', 'checkpoint_path': 'backbone_checkpoints/resnet_v1_101.ckpt'},
 
             # 8x6x1024 => 16x12x512
             'deconv1': {'filter_shape': [3, 3, 512, 1024], 'strides': [1, 2, 2, 1], 'output_shape': [None, 16, 12, 512]},

@@ -7,6 +7,11 @@
 #
 # ===============================================
 
+"""
+training script for single human pose estimation.
+
+"""
+
 # packages
 import time
 import os
@@ -14,6 +19,7 @@ import cv2
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
+import sys
 
 # my script
 from lib.utils import helper
@@ -107,6 +113,13 @@ def get_imgs_and_heatmap(sess, mini_batch, input_size):
 def main(unused_argv):
     batch_size = FLAGS.batch_size
 
+    print('-' * 40)
+    for key in FLAGS.__flags.keys():
+        if key == 'h' or key == 'help' or key == 'helpfull' or key =='helpshort':
+            pass
+        else:
+            print('{:20} : {}'.format(key, FLAGS[key].value))
+    print('-' * 40)
 
     input_size = (256, 192)
     dataset = Dataset(FLAGS.tfrecord_dir,
@@ -123,23 +136,93 @@ def main(unused_argv):
     heatmaps = mini_batch['heatmaps']
     image = tf.to_float(image)
     model = Hourglass(is_use_bn=True, num_keypoints=17)
-    d_logits = model.build(image, 'Hourglass', is_training=True, visualize=True)
+    logits, savers = model.build(image, 'Hourglass', is_training=True, visualize=True)
+
+    # get loss and train_operater
+    loss, train_op = model.get_train_op(logits,
+                                        heatmaps,
+                                        scope='Hourglass',
+                                        learning_rate=FLAGS.base_learning_rate,
+                                        decay_rate=FLAGS.weight_decay
+                                        )
+
+    # global step holder
+    global_step = tf.Variable(0, name='global_step')
+    global_step_holder = tf.placeholder(tf.int32)
+    global_step_op = global_step.assign(global_step_holder)
 
 
-
-
+    global_saver = tf.train.Saver()
     config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
     with tf.Session(config=config) as sess:
-        sess.run(tf.global_variables_initializer())
+
+        ####################### setting saver ###########################
+        checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoints_dir)
+        if checkpoint:
+            print('\n\n' + checkpoint.model_checkpoint_path)
+            print('variables were restored.')
+            global_saver.restore(sess, checkpoint.model_checkpoint_path)
+        else:
+            sess.run(tf.global_variables_initializer())
+            print('variables were initialized.')
+
+            # load backbone weights
+            for key in savers.keys():
+                saver = savers[key]['saver']
+                checkpoint_path = savers[key]['checkpoint_path']
+                saver.restore(sess, checkpoint_path)
+                print('{} weights were restored.'.format(key))
+            print('model_checkpoints {}'.format(FLAGS.checkpoints_dir))
+
+        # checkpoint_path
+        checkpoint_path = os.path.join(FLAGS.checkpoints_dir, 'model.ckpt')
+        if not os.path.exists(FLAGS.checkpoints_dir):
+            os.makedirs(checkpoints_dir)
+        step = global_step.eval()
+        #################################################################
 
 
-        for train_count in range(FLAGS.steps):
-            input_data, labels = get_imgs_and_heatmap(sess, mini_batch, input_size)
+        writer = tf.summary.FileWriter(FLAGS.logdir, sess.graph)
+        merged = tf.summary.merge_all()
+
+        loss_list = []
+        try:
+            for train_count in range(FLAGS.steps):
+                step += 1
+                l, _ = sess.run([loss, train_op])
+
+                loss_list.append(l)
+                disp_string = '\rstep {train_step:{len}}: loss - {loss:.2f}'.format(train_step=train_count+1,
+                                                                    len=len(str(FLAGS.steps)),
+                                                                    loss=l)
+                sys.stdout.write(disp_string)
+                if train_count % 100 == 0:
+                    print(' - mean loss: {}'.format(np.mean(loss_list)))
+                # print('step {train_step:{len}}: loss - {loss:.2f}'.format(train_step=train_count+1,
+                #                                                           len=len(str(FLAGS.steps)),
+                #                                                           loss=l))
+
+                if step % 5 == 0:
+                    # record summary
+                    summary_str = sess.run(merged)
+                    writer.add_summary(summary_str, step)
+
+                if step % 1000 == 0:
+                    sess.run(global_step_op, feed_dict={global_step_holder: step})
+                    save_path = global_saver.save(sess, checkpoint_path, global_step=step)
+                    print('\nModel saved in path: %s' % save_path)
 
 
-            print(input_data.shape, labels.shape)
+            save_path = global_saver.save(sess, checkpoint, global_step=step)
+            print('\nModel saved in path %s' % save_path)
 
-
+        except KeyboardInterrupt:
+            print('\ncatch keyboard interrupt.')
+        finally:
+            # save
+            sess.run(global_step_op, feed_dict={global_step_holder: step})
+            save_path = global_saver.save(sess, checkpoint_path, global_step=step)
+            print('\nModel saved in path: %s' % save_path)
 
 if __name__ == '__main__':
     tf.app.run()
