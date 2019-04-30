@@ -357,6 +357,8 @@ class ParentFCN:
         """
         # batch_size = tf.shape(input_img)[0]
 
+        # pre-trainedモデルを使う場合にそれぞれの変数saverを作る必要があるから
+        savers = {}
 
         with tf.name_scope(name) as scope:
             if reuse:
@@ -467,14 +469,18 @@ class ParentFCN:
                     self.num_params_each_layer[key] = 0
 
                 elif key.startswith('backbone'):
+
                     net_name = self.model_structure[key]['net']
+                    checkpoint_path = self.model_structure[key]['checkpoint_path']
 
-                    with tf.variable_scope(key):
-                        with slim.arg_scope(resnet_v1.resnet_arg_scope()):
-                            _, end_points = resnet_v1.resnet_v1_101(pre_layer, 1000, is_training=is_training)
-                        conv_out = end_points[key + "/resnet_v1_101/block3"]
 
-                    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=key+'/resnet_v1_101')
+                    with slim.arg_scope(resnet_v1.resnet_arg_scope()):
+                        _, end_points = resnet_v1.resnet_v1_101(pre_layer, 1000, is_training=is_training)
+                    conv_out = end_points["resnet_v1_101/block3"]
+
+                    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='resnet_v1_101')
+                    print('var_list: ')
+                    print(var_list)
                     # calculate number of parameters.
                     num_param = 0
                     for var in var_list:
@@ -485,7 +491,7 @@ class ParentFCN:
                         num_param += param
                     self.num_params_each_layer[key] = num_param
                     saver1 = tf.train.Saver(var_list)
-
+                    savers[key] = {'saver': saver1, 'checkpoint_path': checkpoint_path}
                     self.layers[key] = conv_out
 
                 else:
@@ -514,7 +520,7 @@ class ParentFCN:
         if visualize:
             self.visualize_layers()
 
-        return pre_layer
+        return pre_layer, savers
 
 
     def visualize_layers(self):
@@ -573,21 +579,30 @@ class ParentFCN:
         print('-' * disp_str_len)
 
 
-    def loss(self, predict, target, use_l2_loss=True, decay_rate=0.005):
+    def loss(self, predict, target, use_weight_decay=True, decay_rate=0.005):
+        """
+        calculate loss against predict and target.
 
-        self.softmax = tf.nn.softmax(predict, axis=2)
-        self.cross_entropy = -tf.reduce_mean(tf.multiply(tf.log(self.softmax), target))
+        Args:
+            predict: predict heatmap Tensor. format=> [batch, height, width, keypoints_num]
+            target: target heatmap Tensor. format is same as predict.
+            use_weight_decay: boolean. whether you use weight decay.
+            decay_rate: weights decay rate.
+        """
 
-        loss = self.cross_entropy
-        if use_l2_loss:
-            sum_L2_loss = 0
+        loss = tf.nn.l2_loss((predict - target))
+        # self.softmax = tf.nn.softmax(predict, axis=2)
+        # self.cross_entropy = -tf.reduce_mean(tf.multiply(tf.log(self.softmax), target))
+        loss_with_weight_decay = loss
+        if use_weight_decay:
+            weight_decay_sum = 0
             for key in self.weights.keys():
-                L2 = tf.nn.l2_loss(self.weights[key], name=key+'l2_loss')
-                sum_L2_loss += L2
+                weight_decay = tf.nn.l2_loss(self.weights[key], name=key+'l2_loss')
+                weight_decay_sum += weight_decay
 
-            loss += decay_rate * sum_L2_loss
+            loss_with_weight_decay += weight_decay_sum
 
-        return self.cross_entropy, loss
+        return loss, loss_with_weight_decay
 
 
     def train(self, input, target, is_training, deconv_learning_rate=0.001, conv_learning_rate=0.1, decay_rate=0.005, visualize=False):
