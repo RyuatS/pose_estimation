@@ -12,6 +12,7 @@ from .ParentFCN import ParentFCN
 class Hourglass(ParentFCN):
     def __init__(self, is_use_bn, num_keypoints=17):
         super().__init__(is_use_bn=True)
+        self._model_type = 'Hour Glass Net'
 
         self.model_structure = {
             # input > 256x192
