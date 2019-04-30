@@ -3,3 +3,4 @@ data/tfrecord/
 data/cocodevkit/tfrecord/
 __pycache__/
 .ipynb_checkpoints/
+checkpoints/
