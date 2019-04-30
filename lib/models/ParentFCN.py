@@ -8,6 +8,7 @@ class ParentFCN:
     def __init__(self, is_use_bn=False):
         self.weights = {}
         self.biases = {}
+        self.num_params_each_layer = {}
         # batch normを使うか。　使う場合、True
         self.is_use_bn = is_use_bn
 
@@ -249,7 +250,7 @@ class ParentFCN:
         return bias
 
 
-    def perform_conv(input, key, is_training):
+    def perform_conv(self, input, key, is_training):
         """
         perform convolution to input.
 
@@ -266,14 +267,14 @@ class ParentFCN:
         filter_shape = self.model_structure[key]['filter_shape']
         strides = self.model_structure[key]['strides']
         if 'dilations' in self.model_structure[key].keys():
-            dilation = self.model_structure[key]['dilations']
+            dilations = self.model_structure[key]['dilations']
         else:
-            dilation = None
+            dilations = None
 
         if 'activation' in self.model_structure[key].keys():
             activation = self.model_structure[key]['activation']
         else:
-            activation = DEFAULT_ACTIVATION
+            activation = ParentFCN.DEFAULT_ACTIVATION
 
         if 'dropout' in self.model_structure[key].keys():
             keep_prob = self.model_structure[key]['dropout']
@@ -296,7 +297,7 @@ class ParentFCN:
         return output
 
 
-    def perform_deconv(input, key, is_training):
+    def perform_deconv(self, input, key, is_training):
         """
         perform deconvolution to input.
 
@@ -318,7 +319,7 @@ class ParentFCN:
         if 'activation' in self.model_structure[key].keys():
             activation = self.model_structure[key]['activation']
         else:
-            activation=DEFAULT_ACTIVATION
+            activation = ParentFCN.DEFAULT_ACTIVATION
         # if output_shape[0] is None:
         #     output_shape[0] = batch_size
         # if output_shape[1] is None:
@@ -357,7 +358,7 @@ class ParentFCN:
         # batch_size = tf.shape(input_img)[0]
 
 
-        with tf.variable_scope(name) as scope:
+        with tf.name_scope(name) as scope:
             if reuse:
                 scope.reuse_variables()
             self.layers = OrderedDict()
@@ -369,6 +370,7 @@ class ParentFCN:
             self.input_img = input_img
             # 一つ前の層のデータ
             self.layers['input'] = self.input_img
+            self.num_params_each_layer['input'] = 0
             pre_layer = self.input_img
             num_node = 4*4*512
 
@@ -389,8 +391,26 @@ class ParentFCN:
                 if key.startswith('conv'):
                     self.layers[key] = self.perform_conv(pre_layer, key, is_training)
 
+                    # calculate number of parameters
+                    num_params = 0
+                    num_params = (self.weights[key].get_shape().as_list()[0] *
+                                 self.weights[key].get_shape().as_list()[1] *
+                                 self.weights[key].get_shape().as_list()[2] *
+                                 self.weights[key].get_shape().as_list()[3])
+                    num_params += self.biases[key].get_shape().as_list()[0]
+                    self.num_params_each_layer[key] = num_params
+
                 elif key.startswith('deconv'):
                     self.layers[key] = self.perform_deconv(pre_layer, key, is_training)
+
+                    # calculate number of parameters
+                    num_params = 0
+                    num_params = (self.weights[key].get_shape().as_list()[0] *
+                                 self.weights[key].get_shape().as_list()[1] *
+                                 self.weights[key].get_shape().as_list()[2] *
+                                 self.weights[key].get_shape().as_list()[3])
+                    num_params += self.biases[key].get_shape().as_list()[0]
+                    self.num_params_each_layer[key] = num_params
 
                 elif key.startswith('Dense'):
                     units = self.model_structure[key]['units']
@@ -412,6 +432,8 @@ class ParentFCN:
                     strides = self.model_structure[key]['strides']
                     self.layers[key] = self.avg_pool(pre_layer, name=key, strides=strides)
 
+                    self.num_parms_each_layer[key] = 0
+
                 elif key.startswith('gray'):
                     if pre_layer.get_shape()[3] == 6:
                         image1, image2 = tf.split(pre_layer, [3, 3], axis=3)
@@ -421,31 +443,50 @@ class ParentFCN:
                     else:
                         self.layers[key] = tf.image.rgb_to_grayscale(pre_layer)
 
+                    self.num_params_each_layer[key] = 0
+
+
                 elif key.startswith('GAP'):
                     b, h, w, c = pre_layer.get_shape().as_list()
                     ksize = [1, h, w, 1]
                     gap = self.avg_pool(pre_layer, key, ksize=ksize)
                     self.layers[key] = tf.reshape(gap, [-1, c])
 
+                    self.num_params_each_layer[key] = 0
+
+
                 elif key.startswith('Flatten'):
                     self.layers[key] = tf.layers.Flatten()(pre_layer)
+
+                    self.num_params_each_layer[key] = 0
 
                 elif key.startswith('reshape'):
                     shape = self.model_structure[key]['shape']
                     self.layers[key] = tf.reshape(pre_layer, [-1] + shape)
 
+                    self.num_params_each_layer[key] = 0
+
                 elif key.startswith('backbone'):
                     net_name = self.model_structure[key]['net']
 
-                    with tf.name_scope(key):
+                    with tf.variable_scope(key):
                         with slim.arg_scope(resnet_v1.resnet_arg_scope()):
                             _, end_points = resnet_v1.resnet_v1_101(pre_layer, 1000, is_training=is_training)
-                        conv_out = end_points[name + "/resnet_v1_101/block3"]
-                    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=key)
+                        conv_out = end_points[key + "/resnet_v1_101/block3"]
+
+                    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=key+'/resnet_v1_101')
+                    # calculate number of parameters.
+                    num_param = 0
+                    for var in var_list:
+                        shape = var.get_shape().as_list()
+                        param = 1
+                        for dim in shape:
+                            param *= dim
+                        num_param += param
+                    self.num_params_each_layer[key] = num_param
                     saver1 = tf.train.Saver(var_list)
 
-                    pre_layer[key] = conv_out
-
+                    self.layers[key] = conv_out
 
                 else:
                     raise ValueError("model structure's key is not correct")
@@ -471,14 +512,65 @@ class ParentFCN:
 
 
         if visualize:
-            print('-' * 40)
-            print(' {} '.format(self.model_type))
-            print('-' * 40)
-            for key in self.layers.keys():
-                print('{}\t{}'.format(key, self.layers[key].get_shape()))
-            print('-' * 40)
+            self.visualize_layers()
 
         return pre_layer
+
+
+    def visualize_layers(self):
+        """
+        visualize layers information.
+        layer name, layer output shape and number of parameters.
+
+        """
+        # それぞれの文字列の長さを最大値を求めるのは、表示するときに最大値を基準に表示するからである。
+        #　最大値に合わせないと、ズレが起きる.
+
+        # self.layersのkeysの文字列としての長さで一番長い値を保持する.
+        key_max_length = 0
+        # self.layersのそれぞれのshapeのリストの文字列で表した時の長さを表す。
+        # 例えば, shape = '[ None, 1024, 1024, 1024]' なら、25である。
+        # また、今回は、shapeのそれぞれの値は、4桁と仮定しているため、カンマが3つ、カッコが2つ,それぞれのshapeの長さが5つで shapeは4次元.
+        # よって、 3 + 2 + (5 * 4)で文字列として25を保持する。
+        shape_max_str_length = 25
+        # パラメータの桁数で最も長いものを保持する。
+        param_max_str_length = 0
+
+        # それぞれの文字列フィールドの最大値を計算する。
+        # 実際には、layer名の長さの最大値とパラメータ数の桁数の最大値を計算する。
+        for key in self.layers.keys():
+            if key_max_length < len(key):
+                key_max_length = len(key)
+            if param_max_str_length < len(str(self.num_params_each_layer[key])):
+                param_max_str_length = len(str(self.num_params_each_layer[key]))
+
+        # 文字列を表示する最大値を求める。
+        # 実際には、以下のようになっている(_はスペースを表す)
+        # _<layer_name>_:_<output_shape>____<num_params>_
+        # これの文字列としての長さを表す。
+        disp_str_len = (key_max_length +
+                        shape_max_str_length +
+                        param_max_str_length + 9)
+        print('-' * disp_str_len)
+        print('{name:^{len}}'.format(len=disp_str_len,
+                                     name=self._model_type))
+        print('-' * disp_str_len)
+        print(' {key_name:^{key_len}} : {shape:^{shape_len}}    {param:^{param_len}} '.format(
+            key_name='layer',
+            key_len=key_max_length,
+            shape='output shape',
+            shape_len=shape_max_str_length,
+            param='params',
+            param_len=param_max_str_length
+        ))
+        print('-' * disp_str_len)
+        for key in self.layers.keys():
+            print(' {key_name:^{key_len}} : '.format(key_name=key, key_len=key_max_length), end='')
+            shape_list = ['None' if shape is None else str(shape) for shape in self.layers[key].get_shape().as_list()]
+            print('[{:>5},{:>5},{:>5},{:>5}]'.format(*shape_list), end='')
+            print('    {param:{param_len}} '.format(param=self.num_params_each_layer[key], param_len=param_max_str_length))
+
+        print('-' * disp_str_len)
 
 
     def loss(self, predict, target, use_l2_loss=True, decay_rate=0.005):
