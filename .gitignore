@@ -6,4 +6,4 @@ __pycache__/
 checkpoints/
 backbone_checkpoints/
 logdir/
-
+data/cocodevkit/dataset/
