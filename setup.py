@@ -19,6 +19,7 @@ Setup script. This script do following steps.
 import os
 import sys
 import urllib.request, shutil, tarfile, zipfile
+import threading
 import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
@@ -69,57 +70,111 @@ def download_pretrained_model(url, save_dir):
 
     """
     save_path = os.path.join(save_dir, url.split('/')[-1])
+    print('\ndownload pretrained model.')
+    if os.path.exists(save_path):
+        print('{} is already exist.'.format(save_path))
+        extract_tar(save_path, save_dir)
 
-    with urllib.request.urlopen(url) as response, open(save_path, 'wb') as out_file:
-        shutil.copyfileobj(response, out_file)
-        print('download {}'.format(url))
+    else:
+        print('downloading tar file in {}'.format(url))
+        with urllib.request.urlopen(url) as response, open(save_path, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+            print('Complete downloading tar file!!')
 
-        with tarfile.open(save_path, 'r:gz') as tar:
-            tar_members = tar.getmembers()
+            extract_tar(save_path, save_dir)
 
-            for member in tar_members:
-                tar.extract(member=member, path=save_dir)
-                print('extracting {} succeed!'.format(member.name))
+
 
 
 def download_dataset(img_url, ann_url, save_dir):
     """
+    download cocodataset.
+
+    Args:
+        img_url: image dataset url.
+        ann_url: annotation files url.
+        save_dir: save directory to which you want to save.
+
     """
 
     save_img_path = os.path.join(save_dir, img_url.split('/')[-1])
     save_ann_path = os.path.join(save_dir, ann_url.split('/')[-1])
 
+    print('\ndownload cocodataset')
+    print('download images')
+
     if os.path.exists(save_img_path):
-        with zipfile.ZipFile(save_img_path) as zip:
-            name_list = zip.namelist()
-            num_files = len(name_list)
-            for i, name in enumerate(name_list, start=1):
-                zipinfo = zip.getinfo(name)
-                zip.extract(zipinfo, path=save_dir)
-                sys.stdout.write('\rextract {}/{} name: {}'.format(i, num_files, name))
-            sys.stdout.write('\nextract all done!\n')
+        # if zip file already exist.
+        extract_zip(save_img_path, save_dir)
     else:
+        print('downloading zip from {}'.format(img_url))
         with urllib.request.urlopen(img_url) as response, open(save_img_path, 'wb') as out_file:
             shutil.copyfileobj(response, out_file)
-            print('download {}'.format(img_url))
+            print('complete downloading!')
 
-            with zipfile.ZipFile(save_img_path) as zip:
-                zipinfo = zip.getinfo()
+            extract_zip(save_img_path, save_dir)
 
+    print('download annotations')
     if os.path.exists(save_ann_path):
-        with zipfile.ZipFile(save_ann_path) as zip
+        " if zip file already exist. "
+        extract_zip(save_ann_path, save_dir)
+    else:
+        print('downloading zip from {}'.format(ann_url))
+        with urllib.request.urlopen(ann_url) as response, open(save_ann_path, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+            print('complete downloading!')
+
+            extract_zip(save_ann_path, save_dir)
+
+
+def extract_tar(file_path, save_dir=None):
+    """
+    extract files in tar file.
+
+    Args:
+        file_path: path of tar file.
+        save_dir: directory where you want to save extracted files.
+    """
+    if save_dir is None:
+        save_dir = os.getcwd()
+
+    with tarfile.open(file_path, 'r:gz') as tar:
+        tar_members = tar.getmembers()
+
+        for member in tar_members:
+            tar.extract(member=member, path=save_dir)
+            print('extractiong {} succeed!'.format(member.name))
 
 
 def extract_zip(file_path, save_dir=None):
+    """
+    extract files in zip file.
 
+    Args:
+        file_path: path of zip file.
+        save_dir: directory where you want to save extracted files.
+
+    """
+    if save_dir is None:
+        save_dir = os.getcwd()
+
+    # oepn zip file as zip.
     with zipfile.ZipFile(file_path) as zip:
+        # get files name in zip file.
         name_list = zip.namelist()
         num_files = len(name_list)
         for i, name in enumerate(name_list, start=1):
-            zipinfo = 
+            zipinfo = zip.getinfo(name)
+            zip.extract(zipinfo, path=save_dir)
+            sys.stdout.write('\rextract {}/{} name: {}'.format(i, num_files, name))
+        sys.stdout.write('\nextract all done!\n')
 
 
 def main(argv):
+    """
+    main function.
+    execute at first.
+    """
 
     backbone_dir = 'backbone_checkpoints'
     cocodata_dir = os.path.join('data', 'cocodevkit', 'dataset')
@@ -129,13 +184,13 @@ def main(argv):
     make_dir(cocodata_dir)
 
     pre_trained_model_url = PRE_TRAINED_URL_TABLE[FLAGS.pre_trained]
-    # download_pretrained_model(pre_trained_model_url, backbone_dir)
+    download_pretrained_model(pre_trained_model_url, backbone_dir)
 
     coco_img_url = COCODATA_URL_TABLE[FLAGS.dataset_type]
     coco_ann_url = COCODATA_URL_TABLE['annotations']
     download_dataset(coco_img_url, coco_ann_url, cocodata_dir)
 
-
+    print('\nall done!!!!')
 
 if __name__ == '__main__':
     tf.app.run()
