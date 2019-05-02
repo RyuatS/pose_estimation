@@ -18,6 +18,9 @@ This dataset is expected to have the following directory structure:
     + cocodevkit
       + tfrecord
       - coco_helper.py
+      + dataset
+        + val2017 or train2017
+        + annotations
     - helper.py
 
 
@@ -57,11 +60,11 @@ import os
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('image_dir',
-                           '/home/ryutashitomi/coco/val2017',
+                           './cocodevkit/dataset/val2017',
                            'Directory containing images.')
 
 tf.app.flags.DEFINE_string('annotation_file',
-                           '/home/ryutashitomi/coco/annotations/person_keypoints_val2017.json',
+                           './cocodevkit/dataset/annotations/person_keypoints_val2017.json',
                            'annotation file. train2017 or val2017')
 
 
