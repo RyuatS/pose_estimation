@@ -33,8 +33,8 @@ tf.app.flags.DEFINE_enum('dataset_type', 'val', ['val', 'train'],
 
 PRE_TRAINED_URL_TABLE = {
     'vgg16': 'http://download.tensorflow.org/models/inception_v1_2016_08_28.tar.gz',
-    'resnet_v1_101': 'http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz',
-    'resnet_v1_50': 'http://download.tensorflow.org/models/resnet_v1_101_2016_08_28.tar.gz',
+    'resnet_v1_50': 'http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz',
+    'resnet_v1_101': 'http://download.tensorflow.org/models/resnet_v1_101_2016_08_28.tar.gz',
 }
 
 COCODATA_URL_TABLE = {
@@ -105,6 +105,7 @@ def download_dataset(img_url, ann_url, save_dir):
 
     if os.path.exists(save_img_path):
         # if zip file already exist.
+        print(save_img_path)
         extract_zip(save_img_path, save_dir)
     else:
         print('downloading zip from {}'.format(img_url))
@@ -112,7 +113,7 @@ def download_dataset(img_url, ann_url, save_dir):
             shutil.copyfileobj(response, out_file)
             print('complete downloading!')
 
-            extract_zip(save_img_path, save_dir)
+        extract_zip(save_img_path, save_dir)
 
     print('download annotations')
     if os.path.exists(save_ann_path):
@@ -124,7 +125,7 @@ def download_dataset(img_url, ann_url, save_dir):
             shutil.copyfileobj(response, out_file)
             print('complete downloading!')
 
-            extract_zip(save_ann_path, save_dir)
+        extract_zip(save_ann_path, save_dir)
 
 
 def extract_tar(file_path, save_dir=None):
@@ -164,9 +165,12 @@ def extract_zip(file_path, save_dir=None):
         name_list = zip.namelist()
         num_files = len(name_list)
         for i, name in enumerate(name_list, start=1):
-            zipinfo = zip.getinfo(name)
-            zip.extract(zipinfo, path=save_dir)
-            sys.stdout.write('\rextract {}/{} name: {}'.format(i, num_files, name))
+            if os.path.exists(os.path.join(save_dir, name)):
+                sys.stdout.write('\rextract       name: {}'.format(name))
+            else:
+                zipinfo = zip.getinfo(name)
+                zip.extract(zipinfo, path=save_dir)
+                sys.stdout.write('\rextract {}/{} name: {}'.format(i, num_files, name))
         sys.stdout.write('\nextract all done!\n')
 
 
