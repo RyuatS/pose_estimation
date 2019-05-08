@@ -166,6 +166,8 @@ if __name__ == '__main__':
     For testing this class.
 
     """
+    import argparser
+    argpars
     import matplotlib.pyplot as plt
     import cv2
     tfrecord_dir = os.path.join('cocodevkit', 'tfrecord')

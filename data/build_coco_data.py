@@ -101,11 +101,20 @@ _KEYPOINTS_LABEL = [
     'right_ankle'       # 16
 ]
 
+_SMALL_RADIUS_KEYPOINTS = [
+    'nose',
+    'left_eye',
+    'right_eye',
+    'left_ear',
+    'right_aer'
+]
+
 # this indexes correspond to up keypoint_label.
 _ALL_BODY_LABEL = [i for i in range(17)]
 _NUM_ALL_BODY_KEYPOINTS = 17
 _UPPER_BODY_LABEL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 _NUM_UPPER_BODY_KEYPOINTS = 13
+_RESIZE_SHAPE = (256, 192) # (HEIGHT, WIDTH)
 
 def _convert_dataset(loader):
     """
@@ -130,6 +139,10 @@ def _convert_dataset(loader):
         label_to_heatmap = _ALL_BODY_LABEL
     else:
         label_to_heatmap = _UPPER_BODY_LABEL
+
+    if not os.path.exists(FLAGS.output_dir):
+        os.makedirs(FLAGS.output_dir)
+
 
     keypoint_anns = loader.keypoint_anns
     for shard_id in range(_NUM_SHARDS):
@@ -162,43 +175,59 @@ def _convert_dataset(loader):
 
                 cropped_img = loader.decode_image_and_crop(img_path, bbox)
 
-                # key_x_list = []
-                # key_y_list = []
-                # key_v_list = []
-                # for key_index in range(len(keypoint_list)):
-                #     key = keypoint_list[key_index]
-                #     key[0] = key[0] - bbox_x
-                #     key[1] = key[1] - bbox_y
-                #
-                #     key_x_list.append(key[0])
-                #     key_y_list.append(key[1])
-                #     key_v_list.append(key[2])
-                # example = convert_tfrecord.image_keypoint_to_tfexample(
-                #     cropped_img, key_x_list, key_y_list, key_v_list
-                # )
-                heatmaps = np.zeros((256, 192))
+                heatmaps = np.zeros(_RESIZE_SHAPE)
 
                 # create heatmap
                 for key_index in label_to_heatmap:
+                    keypoint_name = _KEYPOINTS_LABEL[key_index]
                     key = keypoint_list[key_index]
                     if key[2] == 0:
-                        heatmap = np.zeros((256, 192))
+                        heatmap = np.zeros(_RESIZE_SHAPE)
                     else:
                         # After cropping, fix keypoint location
                         key[0] = key[0] - bbox_x
                         key[1] = key[1] - bbox_y
-                        heatmap = helper.create_heatmap_numpy(cropped_img.shape, key[:2], sigma=10, is_norm=False)
-                        heatmap = cv2.resize(heatmap, (192, 256))
+                        key_resized_x = key[0]*_RESIZE_SHAPE[1]/cropped_img.shape[1]
+                        key_resized_y = key[1]*_RESIZE_SHAPE[0]/cropped_img.shape[0]
+                        # heatmap = helper.create_heatmap_numpy_gaussian(cropped_img.shape, (key_resized_x, key_resized_y), sigma=10, is_norm=True)
+                        if keypoint_name in _SMALL_RADIUS_KEYPOINTS:
+                            radius = 3
+                        else:
+                            radius = 10
+                        heatmap = helper.create_heatmap_for_sigmoid(_RESIZE_SHAPE, (key_resized_x, key_resized_y), radius=radius)
+
                     heatmaps = np.dstack((heatmaps, heatmap))
                 heatmaps = heatmaps[: ,:, 1:]
-                cropped_img = cv2.resize(cropped_img, (192, 256))
+                resized_img = cv2.resize(cropped_img, _RESIZE_SHAPE[::-1])
+
+                # test_visualize(resized_img, heatmaps)
                 example = convert_tfrecord.image_heatmap_to_tfexample(
-                    cropped_img, heatmaps
+                    resized_img, heatmaps
                 )
                 tfrecord_writer.write(example.SerializeToString())
 
     sys.stdout.write('\nComplete!!\n')
     sys.stdout.flush()
+
+def test_visualize(resized_img, heatmaps):
+    """
+    make sure that heatmaps is created correctly.
+
+    Args:
+        resized_img: raw resized image. [height, width, 3].
+        heatmaps: heatmaps. [height, width, keypoint_num].
+                  heatmap's height and width should be same as image's height and width.
+
+    """
+    heat_channel = heatmaps.shape[2]
+    temp = cv2.cvtColor(resized_img, cv2.COLOR_RGB2GRAY).astype(np.float64) * (heat_channel + 1)
+
+    for c in range(heat_channel):
+        h = heatmaps[:,:,c]
+        temp += h * 255 * (heat_channel +1)
+    temp /= (heat_channel + 1)
+    plt.imshow(temp/255)
+    plt.savefig('keypoint_vis.jpg')
 
 
 def main(unused_argv):

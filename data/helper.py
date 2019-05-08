@@ -22,9 +22,9 @@ import tensorflow as tf
 from tensorflow.contrib.distributions import MultivariateNormalDiag
 
 
-def create_heatmap_numpy(heatmap_shape, keypoint, sigma=1.0, is_norm=True):
+def create_heatmap_numpy_gaussian(heatmap_shape, keypoint, sigma=1.0, is_norm=True):
     """
-    create heatmap.
+    create heatmap with 2d-gaussian distribution.
 
     Args:
         heatmap_shape: heatmap shape that you hope. (height, width)
@@ -70,6 +70,36 @@ def create_heatmap_numpy(heatmap_shape, keypoint, sigma=1.0, is_norm=True):
     heatmap = np.vectorize(f)(X, Y)
 
     return heatmap
+
+
+def create_heatmap_for_sigmoid(heatmap_shape, keypoint, radius=10):
+    """
+    クロスエントロピー誤差用のヒートマップを作成する。
+    作り方は、キーポイントの位置から半径がradiusの円の内部の値を１にする。
+    それ以外は、0にする。
+
+    Args:
+        heatmap_shape: heatmap shape that you hope. (height, width)
+        keypoint: tuple or list. keypoint location (x, y).
+        radius: 半径
+
+    Return:
+        heatmap
+    """
+    height, width = heatmap_shape[0], heatmap_shape[1]
+    heatmap = np.zeros((height, width))
+    key_x, key_y = keypoint
+
+    for height_loc in range(height):
+        for width_loc in range(width):
+            distance_to_key = abs(key_x - width_loc) ** 2 + abs(key_y - height_loc) ** 2
+            distance_to_key = np.sqrt(distance_to_key)
+
+            if distance_to_key <= radius:
+                heatmap[height_loc, width_loc] = 1
+
+    return heatmap
+
 
 sess = tf.Session()
 def create_heatmap(img, keypoint, sigma=1.0):

@@ -589,6 +589,8 @@ class ParentFCN:
         """
 
         loss = tf.nn.l2_loss((predict - target))
+        self.sigmoid = tf.math.sigmoid(predict)
+        
         # self.softmax = tf.nn.softmax(predict, axis=2)
         # self.cross_entropy = -tf.reduce_mean(tf.multiply(tf.log(self.softmax), target))
         loss_with_weight_decay = loss
