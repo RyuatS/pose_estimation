@@ -81,7 +81,7 @@ def download_pretrained_model(url, save_dir):
             shutil.copyfileobj(response, out_file)
             print('Complete downloading tar file!!')
 
-            extract_tar(save_path, save_dir)
+        extract_tar(save_path, save_dir)
 
 
 
