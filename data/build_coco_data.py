@@ -25,10 +25,12 @@ This dataset is expected to have the following directory structure:
 
 
 Image Directory:
-  /home/user/coco
+  ./cocodevkit/dataset/{}
+  {}: train2017 or val2017
+  ./cocodevkit/dataset/train2017
 
 Annotation file:
-  /home/user/coco/annotations/person_keypoints_{}.json
+  ./cocodevkit/dataset/annotations/person_keypoints_{}.json
   {}: train2017 or val2017 or test2017
 
 This script converts data into shrded data files and save at tfrecord folder.
@@ -44,19 +46,20 @@ The Example proto contains the following fields:
   image/key_v_list: keypoint locations visible
 """
 
+# lib
 import tensorflow as tf
 import sys
 import math
-import convert_tfrecord
-import helper
-from cocodevkit.coco_helper import CocoLoader
-import convert_tfrecord
 import numpy as np
-import convert_tfrecord
 import matplotlib.pyplot as plt
 import cv2
-
 import os
+
+# user packages
+import helper
+import convert_tfrecord
+from cocodevkit.coco_helper import CocoLoader
+
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('image_dir',
