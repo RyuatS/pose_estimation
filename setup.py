@@ -24,7 +24,7 @@ import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_enum('pre_trained', 'resnet_v1_101',
+tf.app.flags.DEFINE_enum('pre_trained', 'resnet_v1_50',
                          ['vgg16', 'resnet_v1_101', 'resnet_v1_50'],
                          'Pre-trained model name you wanna download (vgg16, resnet_v1_101, resnet_v1_50)')
 
