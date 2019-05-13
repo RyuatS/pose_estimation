@@ -382,7 +382,7 @@ class ParentFCN:
                 # 'conv'   => perform 'convolutional'
                 # 'deconv' => perform 'deconvolutional'
                 # 'Dense'  => perform 'fully connected'
-                # 'pool'   => perform 'pooling'
+                # 'tf.topool'   => perform 'pooling'
                 # 'gray'   => perform 'gray'
                 # 'GAP'    => perform 'global average pooling'
                 # 'Flatten'=> perform 'flatten'
@@ -587,10 +587,12 @@ class ParentFCN:
             use_weight_decay: boolean. whether you use weight decay.
             decay_rate: weights decay rate.
         """
+        loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=target, logits=predict)
+        loss = tf.reduce_sum(loss, axis=[1, 2, 3])
+        loss = tf.reduce_mean(loss)
+        print(loss.get_shape())
 
-        loss = tf.nn.l2_loss((predict - target))
-        self.sigmoid = tf.math.sigmoid(predict)
-        
+
         # self.softmax = tf.nn.softmax(predict, axis=2)
         # self.cross_entropy = -tf.reduce_mean(tf.multiply(tf.log(self.softmax), target))
         loss_with_weight_decay = loss
@@ -637,7 +639,11 @@ class ParentFCN:
         #     print(var)
         # train_var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
         # 2) create optimizer and train op
-        train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_with_weight_decay, var_list=trainable)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+        # for batch normalization
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            train_op = optimizer.minimize(loss_with_weight_decay, var_list=trainable)
 
         # 3) return
         return loss, train_op
