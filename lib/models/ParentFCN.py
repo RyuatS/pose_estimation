@@ -511,8 +511,8 @@ class ParentFCN:
                 pre_layer = self.layers[key]
 
 
-            for key in self.weights.keys():
-                tf.summary.histogram('histogram-' + key, self.weights[key])
+            # for key in self.weights.keys():
+            #     tf.summary.histogram('histogram-' + key, self.weights[key])
 
 
         if visualize:
@@ -634,6 +634,9 @@ class ParentFCN:
         # for var in train_var_list:
         #     print(var)
         # train_var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope)
+
+        for var in trainable:
+            tf.summary.histogram(var.name, var)
         # 2) create optimizer and train op
         train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_with_weight_decay, var_list=trainable)
 
