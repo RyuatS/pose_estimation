@@ -181,7 +181,7 @@ def main(unused_argv):
         step = global_step.eval()
         #################################################################
 
-
+        loss_summary = tf.summary.scalar('loss', loss)
         writer = tf.summary.FileWriter(FLAGS.logdir, sess.graph)
         merged = tf.summary.merge_all()
 
@@ -213,7 +213,7 @@ def main(unused_argv):
                     print('\nModel saved in path: %s' % save_path)
 
 
-            save_path = global_saver.save(sess, checkpoint, global_step=step)
+            save_path = global_saver.save(sess, checkpoint_path, global_step=step)
             print('\nModel saved in path %s' % save_path)
 
         except KeyboardInterrupt:
