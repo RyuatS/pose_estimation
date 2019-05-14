@@ -24,7 +24,7 @@ import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_enum('pre_trained', 'resnet_v1_101',
+tf.app.flags.DEFINE_enum('pre_trained', 'resnet_v1_50',
                          ['vgg16', 'resnet_v1_101', 'resnet_v1_50'],
                          'Pre-trained model name you wanna download (vgg16, resnet_v1_101, resnet_v1_50)')
 
@@ -81,7 +81,7 @@ def download_pretrained_model(url, save_dir):
             shutil.copyfileobj(response, out_file)
             print('Complete downloading tar file!!')
 
-            extract_tar(save_path, save_dir)
+        extract_tar(save_path, save_dir)
 
 
 
