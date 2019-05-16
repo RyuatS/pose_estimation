@@ -25,6 +25,7 @@ import sys
 from lib.utils import helper
 from data.dataset_generator import Dataset
 from lib.models.hourglass import Hourglass
+from lib.core.config import BACKBONE_NAME_LIST
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -44,8 +45,8 @@ tf.app.flags.DEFINE_integer('eval_interval',
                             'evaluate interval (not yet)')
 
 # Hyper parameters.
-tf.app.flags.DEFINE_enum('backbone', 'resnet_101', ['resnet_101', 'resnet_50', 'vgg16'],
-                         'Backbone network')
+# tf.app.flags.DEFINE_enum('backbone', 'resnet_v1_101', BACKBONE_NAME_LIST,
+#                          'Backbone network')
 tf.app.flags.DEFINE_integer('steps', 1000, 'steps')
 tf.app.flags.DEFINE_integer('batch_size', 32, 'batch_size')
 tf.app.flags.DEFINE_float('base_learning_rate', .0001,
@@ -93,7 +94,7 @@ def main(unused_argv):
     mini_batch = iterator.get_next()
     image = mini_batch['image']
     heatmaps = mini_batch['heatmaps']
-    image = tf.to_float(image)
+    image = tf.cast(image, tf.float32)
     model = Hourglass(is_use_bn=True, num_keypoints=17)
     logits, savers = model.build(image, 'Hourglass', is_training=True, visualize=True)
 
@@ -116,8 +117,8 @@ def main(unused_argv):
 
 
 
-    global_saver = tf.train.Saver()
     ####################### setting saver ###########################
+    global_saver = tf.train.Saver()
     checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoints_dir)
     if checkpoint:
         print('\n\n' + checkpoint.model_checkpoint_path)
@@ -128,17 +129,20 @@ def main(unused_argv):
         print('variables were initialized.')
 
         # load backbone weights
-        for key in savers.keys():
-            saver = savers[key]['saver']
-            checkpoint_path = savers[key]['checkpoint_path']
-            saver.restore(sess, checkpoint_path)
-            print('{} weights were restored.'.format(key))
-        print('model_checkpoints {}'.format(FLAGS.checkpoints_dir))
+        if 'backbone' in model.model_structure.keys():
+            pretrained_name = model.model_structure['backbone']['net']
+            backbone_vars = tf.contrib.framework.get_variables_to_restore(include=[pretrained_name])
+            pretrained_saver = tf.train.Saver(var_list=backbone_vars)
+            pretrained_checkpoint = os.path.join('.',
+                                                 'backbone_checkpoints',
+                                                 '{}.ckpt'.format(pretrained_name))
+            pretrained_saver.restore(sess, pretrained_checkpoint)
+            print('{} weights were restored.'.format(pretrained_name))
 
     # checkpoint_path
     checkpoint_path = os.path.join(FLAGS.checkpoints_dir, 'model.ckpt')
     if not os.path.exists(FLAGS.checkpoints_dir):
-        os.makedirs(checkpoints_dir)
+        os.makedirs(FLAGS.checkpoints_dir)
     step = sess.run(global_step)
     #################################################################
 
@@ -151,16 +155,43 @@ def main(unused_argv):
     try:
         for _ in range(FLAGS.steps):
             step += 1
-            l, _, summary_str = sess.run([loss, train_op, writer_op])
+            # l, _, summary_str, lr = sess.run([loss, train_op, writer_op, learning_rate])
+            l, _, summary_str, lr, img, hm, pred = sess.run([loss, train_op, writer_op, learning_rate, image, heatmaps, logits])
+            # print('img.shape: {}, hm.shape: {}'.format(img.shape, hm.shape))
+            # print('pred.shape: {}'.format(pred.shape))
+
+            img = img[0]
+            hm = hm[0]
+            pred = pred[0]
+            plt.subplot(131)
+            plt.imshow(img.astype(np.uint8))
+            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            gray /= 255
+            for i in range(hm.shape[2]):
+                h = hm[:,:,i]
+                gray += h
+            gray /= 18
+            plt.subplot(132)
+            plt.imshow(gray, cmap='gray')
+            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            gray = np.zeros((gray.shape))
+            num_channel = pred.shape[2]
+            for i in range(num_channel):
+                p = pred[:,:,i]
+                gray += p
+            gray /= num_channel
+            plt.subplot(133)
+            plt.imshow(gray, cmap='gray')
+            # plt.show()
 
             loss_list.append(l)
             writer.add_summary(summary_str, global_step=step)
             writer.flush()
 
-            print('=> STEP %10d [TRAIN]:\tloss:%7.4f ' %(step, l))
+            print('=> STEP %10d [TRAIN]:\tloss:%7.4f\t lr: %.4f' %(step, l, lr))
 
             if step % FLAGS.eval_interval == 0:
-                print(' - mean loss: %7.4f' %(np.mean(loss_list)))
+                print('==> mean loss: %7.4f' %(np.mean(loss_list)))
                 loss_list = []
 
             if step % FLAGS.save_interval == 0:

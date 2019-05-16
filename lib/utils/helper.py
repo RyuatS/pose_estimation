@@ -20,6 +20,11 @@ import matplotlib.image as mpimg
 import math
 import tensorflow as tf
 from tensorflow.contrib.distributions import MultivariateNormalDiag
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
+from core.config import R_MEAN, G_MEAN, B_MEAN
 
 
 def create_heatmap_numpy(heatmap_shape, keypoint, sigma=1.0, is_norm=True):

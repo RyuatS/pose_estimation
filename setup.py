@@ -16,23 +16,26 @@ Setup script. This script do following steps.
 2) Download pre-trained model checkpoint files and ms-coco dataset.
 3) Unzip downloaded files.
 """
+# lib
 import os
 import sys
 import urllib.request, shutil, tarfile, zipfile
 import threading
 import tensorflow as tf
 
+# user packages
+from lib.core.config import BACKBONE_NAME_LIST
+
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_enum('pre_trained', 'resnet_v1_50',
-                         ['vgg16', 'resnet_v1_101', 'resnet_v1_50'],
+                         BACKBONE_NAME_LIST,
                          'Pre-trained model name you wanna download (vgg16, resnet_v1_101, resnet_v1_50)')
 
 tf.app.flags.DEFINE_enum('dataset_type', 'val', ['val', 'train'],
                          'coco dataset type (val or train)')
 
 PRE_TRAINED_URL_TABLE = {
-    'vgg16': 'http://download.tensorflow.org/models/inception_v1_2016_08_28.tar.gz',
     'resnet_v1_50': 'http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz',
     'resnet_v1_101': 'http://download.tensorflow.org/models/resnet_v1_101_2016_08_28.tar.gz',
 }
