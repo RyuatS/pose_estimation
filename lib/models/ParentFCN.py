@@ -1,8 +1,26 @@
+# coding=utf-8
+
+# ===============================================
+# Author: RyutaShitomi
+# date: 2019-05-15T03:00:51.267Z
+# Description:
+#
+# ===============================================
+
+# lib
 import tensorflow as tf
 import math
 from collections import OrderedDict
-from tensorflow.contrib.slim.nets import resnet_v1
+from tensorflow.contrib.slim.nets import resnet_v1, vgg
 from tensorflow.contrib import slim
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, 'models', 'research', 'slim'))
+
+# user packages
+from core.config import BACKBONE_NAME_LIST, R_MEAN, G_MEAN, B_MEAN
+from preprocessing import vgg_preprocessing
 
 class ParentFCN:
     def __init__(self, is_use_bn=False):
@@ -76,8 +94,8 @@ class ParentFCN:
                 out = tf.nn.leaky_relu(conv)
             elif activation=='sigmoid':
                 out = tf.nn.sigmoid(conv)
-            elif activation=='none':
-                out = tf.nn.sigmoid(conv)
+            elif activation=='no':
+                out = conv
             else:
                 raise ValueError('conv-activation {} is not defined'.format(activation))
             out = tf.nn.dropout(out, keep_prob)
@@ -133,6 +151,8 @@ class ParentFCN:
                 out = tf.nn.relu(deconv)
             elif activation =='leaky':
                 out = tf.nn.leaky_relu(deconv)
+            elif activation == 'no':
+                out = deconv
 
         return out
 
@@ -161,7 +181,7 @@ class ParentFCN:
                 out = tf.nn.sigmoid(out)
             elif activation == 'leaky':
                 out = tf.nn.leaky_relu(out)
-            elif activation == None:
+            elif activation == 'no':
                 pass
             else:
                 raise ValueError('{}, activation {} is not defined'.format(name, activation))
@@ -343,6 +363,63 @@ class ParentFCN:
         return output
 
 
+    def perform_backbone(self, input, key, is_training):
+        """
+        build backbone and input data to backbone net.
+        This function does following steps.
+        1. take layer information (backbone name and output stride) from self.model_structure[key].
+        2. build backbone net.
+
+        Args:
+            input       : pre_layer's data.
+            key         : self.model_structure's key. for taking layer information.
+            is_training : whether train or not you build this model.
+        Reuturn:
+            backbone's output.
+        """
+
+        # 1. take layer information
+        net_name = self.model_structure[key]['net']
+        if 'output_stride' in self.model_structure[key].keys():
+            output_stride = self.model_structure[key]['output_stride']
+        else:
+            output_stride = 16
+
+        # preprocess to image for backbone.
+        mean_filter = tf.constant([R_MEAN, G_MEAN, B_MEAN], dtype=tf.float32)
+        mean_filter = tf.reshape(mean_filter, [1, 1, 1, 3])
+        input = input - mean_filter
+
+        # 2. build backbone net.
+        if net_name in BACKBONE_NAME_LIST:
+            if net_name == 'resnet_v1_101':
+                with slim.arg_scope(resnet_v1.resnet_arg_scope()):
+                    net, end_points = resnet_v1.resnet_v1_101(input,
+                                                     num_classes=None,
+                                                     is_training=is_training,
+                                                     global_pool=False,
+                                                     output_stride=output_stride)
+            elif net_name == 'resnet_v1_50':
+                with slim.arg_scope(resnet_v1.resnet_arg_scope()):
+                    net, end_points = resnet_v1.resnet_v1_50(input,
+                                                    num_classes=None,
+                                                    is_training=is_training,
+                                                    global_pool=False,
+                                                    output_stride=output_stride)
+        else:
+            raise ValueError("backbone '{}' is not implemented".format(net_name))
+
+        for k in end_points:
+            pass
+        ##### write backbone layer's shape
+        # with open('%s_layers.txt' % net_name, 'w') as f:
+        #     for k in end_points:
+        #         write_content = '{}: {}\n'.format(k, end_points[k].get_shape())
+        #         f.write(write_content)
+        exit()
+
+        return net
+
     def build(self, input_img, name, is_training, reuse=False, visualize=False, batch_norm_reuse=False):
         """
         Args:
@@ -379,14 +456,15 @@ class ParentFCN:
             # self.model_structureで層を判断し、処理を行う
             for key in self.model_structure.keys():
                 # model_structureのキー名で処理を決める。
-                # 'conv'   => perform 'convolutional'
-                # 'deconv' => perform 'deconvolutional'
-                # 'Dense'  => perform 'fully connected'
-                # 'tf.topool'   => perform 'pooling'
-                # 'gray'   => perform 'gray'
-                # 'GAP'    => perform 'global average pooling'
-                # 'Flatten'=> perform 'flatten'
-                # 'reshape'=> perform 'reshape'
+                # 'conv'      => perform 'convolutional'
+                # 'deconv'    => perform 'deconvolutional'
+                # 'Dense'     => perform 'fully connected'
+                # 'tf.topool' => perform 'pooling'
+                # 'gray'      => perform 'gray'
+                # 'GAP'       => perform 'global average pooling'
+                # 'Flatten'   => perform 'flatten'
+                # 'reshape'   => perform 'reshape'
+                # 'backbone'  => build backbone and input data to backbone.
                 # else => raise Error
 
                 # print('pre_layer.shape: {}, key: {}'.format(pre_layer.get_shape(), key))
@@ -469,15 +547,10 @@ class ParentFCN:
                     self.num_params_each_layer[key] = 0
 
                 elif key.startswith('backbone'):
-
+                    self.layers[key] = self.perform_backbone(pre_layer, key, is_training=is_training)
                     net_name = self.model_structure[key]['net']
-                    checkpoint_path = self.model_structure[key]['checkpoint_path']
 
-                    with slim.arg_scope(resnet_v1.resnet_arg_scope()):
-                        _, end_points = resnet_v1.resnet_v1_101(pre_layer, 1000, is_training=is_training)
-                    conv_out = end_points["resnet_v1_101/block3"]
-
-                    var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='resnet_v1_101')
+                    var_list = tf.contrib.framework.get_variables_to_restore(include=[net_name])
 
                     # calculate number of parameters.
                     num_param = 0
@@ -488,9 +561,7 @@ class ParentFCN:
                             param *= dim
                         num_param += param
                     self.num_params_each_layer[key] = num_param
-                    saver1 = tf.train.Saver(var_list)
-                    savers[key] = {'saver': saver1, 'checkpoint_path': checkpoint_path}
-                    self.layers[key] = conv_out
+                    # self.layers[key] = net
 
                 else:
                     raise ValueError("model structure's key is not correct")
@@ -590,7 +661,6 @@ class ParentFCN:
         loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=target, logits=predict)
         loss = tf.reduce_sum(loss, axis=[1, 2, 3])
         loss = tf.reduce_mean(loss)
-        print(loss.get_shape())
 
 
         # self.softmax = tf.nn.softmax(predict, axis=2)
