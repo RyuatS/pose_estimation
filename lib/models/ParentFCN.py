@@ -409,14 +409,12 @@ class ParentFCN:
         else:
             raise ValueError("backbone '{}' is not implemented".format(net_name))
 
-        for k in end_points:
-            pass
+        self.backbone_end_points = end_points
         ##### write backbone layer's shape
         # with open('%s_layers.txt' % net_name, 'w') as f:
         #     for k in end_points:
         #         write_content = '{}: {}\n'.format(k, end_points[k].get_shape())
         #         f.write(write_content)
-        exit()
 
         return net
 
@@ -480,6 +478,7 @@ class ParentFCN:
                     num_params += self.biases[key].get_shape().as_list()[0]
                     self.num_params_each_layer[key] = num_params
 
+
                 elif key.startswith('deconv'):
                     self.layers[key] = self.perform_deconv(pre_layer, key, is_training)
 
@@ -525,7 +524,6 @@ class ParentFCN:
 
                     self.num_params_each_layer[key] = 0
 
-
                 elif key.startswith('GAP'):
                     b, h, w, c = pre_layer.get_shape().as_list()
                     ksize = [1, h, w, 1]
@@ -533,7 +531,6 @@ class ParentFCN:
                     self.layers[key] = tf.reshape(gap, [-1, c])
 
                     self.num_params_each_layer[key] = 0
-
 
                 elif key.startswith('Flatten'):
                     self.layers[key] = tf.layers.Flatten()(pre_layer)
@@ -570,13 +567,25 @@ class ParentFCN:
                 if 'concat_from' in self.model_structure[key].keys():
                     # どこのレイヤーから持ってくるか
                     layer_name = self.model_structure[key]['concat_from']
-                    layer_values = self.layers[layer_name]
+                    if layer_name.startswith('backbone'):
+                        # example) residual_layer_name = 'backbone/resnet_v1_50/block2'
+                        residual_layer_name = residual_layer_name.split('/')[1:]
+                        residual_layer_name = '/'.join(residual_layer_name)
+                        layer_values = self.layers[layer_name]
+                    else:
+                        layer_values = self.layers[layer_name]
                     self.layers[key] = tf.concat([self.layers[key], layer_values], axis=3)
 
                 # residualレイヤーがあれば、そのレイヤーからの値を持ってきて、足し合わせる
                 if 'residual' in self.model_structure[key].keys():
-                    residual_layer = self.model_structure[key]['residual']
-                    residual_layer_values = self.layers[residual_layer]
+                    residual_layer_name = self.model_structure[key]['residual']
+                    if residual_layer_name.startswith('backbone'):
+                        # example) residual_layer_name = 'backbone/resnet_v1_50/block2'
+                        residual_layer_name = residual_layer_name.split('/')[1:]
+                        residual_layer_name = '/'.join(residual_layer_name)
+                        residual_layer_values = self.backbone_end_points[residual_layer_name]
+                    else:
+                        residual_layer_values = self.layers[residual_layer_name]
                     self.layers[key] = tf.add(self.layers[key], residual_layer_values)
 
                 pre_layer = self.layers[key]
