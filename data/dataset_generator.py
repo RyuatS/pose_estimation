@@ -28,6 +28,7 @@ class Dataset(object):
                  batch_size,
                  img_size,
                  num_readers=1,
+                 resize=None,
                  is_training=False,
                  should_shuffle=False,
                  should_repeat=False):
@@ -59,6 +60,7 @@ class Dataset(object):
         self.is_training = is_training
         self.should_shuffle = should_shuffle
         self.should_repeat = should_repeat
+        self.resize = resize
 
 
     def _parse_function(self, example_proto):
@@ -122,6 +124,15 @@ class Dataset(object):
         return sample
 
 
+    def _resize_function(self, sample):
+        heatmaps = sample['heatmaps']
+
+        if self.resize is not None:
+            height, width = self.resize
+            sample['heatmaps'] = tf.image.resize_images(heatmaps, (height, width))
+
+        return sample
+
     def get_one_shot_iterator(self):
         """
         Gets an iterator that iterates across the dataset once.
@@ -134,6 +145,7 @@ class Dataset(object):
         dataset = (
             tf.data.TFRecordDataset(files, num_parallel_reads=self.num_readers)
             .map(self._parse_function, num_parallel_calls=self.num_readers)
+            .map(self._resize_function, num_parallel_calls=self.num_readers)
         )
 
         if self.should_shuffle:
