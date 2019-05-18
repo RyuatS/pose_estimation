@@ -25,7 +25,7 @@ import sys
 from lib.utils import helper
 from data.dataset_generator import Dataset
 from lib.models.hourglass import Hourglass
-from lib.core.config import BACKBONE_NAME_LIST
+from lib.core.config import BACKBONE_NAME_LIST, _KEYPOINTS_LABEL
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -61,6 +61,13 @@ tf.app.flags.DEFINE_integer('learning_rate_decay_step', 2000,
 tf.app.flags.DEFINE_float('weight_decay', 0.00005,
                           'The value of the weight decay for training with weight l2 loss')
 
+tf.app.flags.DEFINE_boolean('show',
+                            False,
+                            '')
+
+tf.app.flags.DEFINE_integer('max_pixel',
+                             200,
+                             '')
 
 def visualize_flags():
     """
@@ -74,6 +81,63 @@ def visualize_flags():
             print('{:20} : {}'.format(key, FLAGS[key].value))
     print('-' * 40)
 
+
+def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
+    """
+    visualize input image, target heatmaps and heatmaps.
+
+    Args:
+        image       : input image. [height, width, channel].
+        target      : target heatmaps. [height, width, the number of keypoints]. The number of keypoints should be 17.
+        predict    : predict heatmaps. [height, widht, the number of keypoints]. The number of keypoints hould be 17.
+        is_separate : whether heatmaps separate or not.
+    """
+
+    plot_rows, plot_cols = 3, 6
+    plt.figure(figsize=(12, 10))
+    if target is not None:
+        num_keys = target.shape[2]
+        if is_separate:
+            plt.subplot(plot_rows, plot_cols, 1)
+            plt.imshow(image)
+            plt.title('input image')
+            for index in range(num_keys):
+                plt.subplot(plot_rows, plot_cols, index+2)
+                plt.imshow(target[:, :, index], cmap='gray')
+                plt.title(_KEYPOINT_LABEL[index])
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            if np.max(gray) > 1:
+                gray = gray / 255
+            _2d_heatmap = np.max(target, axis=2)
+            gray = (gray + _2d_heatmap) / 2
+
+            plt.imshow(gray, cmap='gray')
+        plt.show()
+
+    if predict is not None:
+        num_keys = predict.shape[2]
+        if is_separate:
+            plt.subplot(plot_rows, plot_cols, 1)
+            plt.imshow(image)
+            plt.title('input image')
+            for index in range(num_keys):
+                plt.subplot(plot_rows, plot_cols, index)
+                plt.imshow(predict[:, :, index], cmap='gray')
+                plt.title(_KYEPOINT_LABEL[index])
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            if np.max(gray) > 1:
+                gray /= 255
+            _2d_heatmap = np.max(predict, axis=2)
+            gray  = (gray + _2d_heatmap) / 2
+
+            plt.imshow(gray, cmap='gray')
+        plt.show()
+
+    if (predict is None) and (target is None):
+        print('There is nothing to plot')
+
 def main(unused_argv):
     config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
     sess = tf.Session(config = config)
@@ -86,6 +150,7 @@ def main(unused_argv):
                       FLAGS.data_type,
                       batch_size,
                       input_size,
+                      resize=(128, 96),
                       should_repeat=True,
                       should_shuffle=True)
 
@@ -115,7 +180,7 @@ def main(unused_argv):
                                         learning_rate=learning_rate,
                                         decay_rate=FLAGS.weight_decay)
 
-
+    logits = tf.nn.sigmoid(logits)
 
     ####################### setting saver ###########################
     global_saver = tf.train.Saver()
@@ -156,37 +221,55 @@ def main(unused_argv):
         for _ in range(FLAGS.steps):
             step += 1
             # l, _, summary_str, lr = sess.run([loss, train_op, writer_op, learning_rate])
-            l, _, summary_str, lr, img, hm, pred = sess.run([loss, train_op, writer_op, learning_rate, image, heatmaps, logits])
+            l, _, summary_str, lr, img, target, pred = sess.run([loss, train_op, writer_op, learning_rate, image, heatmaps, logits])
             # print('img.shape: {}, hm.shape: {}'.format(img.shape, hm.shape))
             # print('pred.shape: {}'.format(pred.shape))
 
             img = img[0]
-            hm = hm[0]
+            target = target[0]
             pred = pred[0]
-            plt.subplot(131)
-            plt.imshow(img.astype(np.uint8))
-            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            gray /= 255
-            for i in range(hm.shape[2]):
-                h = hm[:,:,i]
-                gray += h
-            gray /= 18
-            plt.subplot(132)
-            plt.imshow(gray, cmap='gray')
-            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            gray = np.zeros((gray.shape))
-            num_channel = pred.shape[2]
-            for i in range(num_channel):
-                p = pred[:,:,i]
-                gray += p
-            gray /= num_channel
-            plt.subplot(133)
-            plt.imshow(gray, cmap='gray')
-            # plt.show()
+            target = cv2.resize(target, (192, 256))
+            pred = cv2.resize(pred, (192, 256))
+
+            if FLAGS.show:
+                visualize_heatmaps(img, predict=pred)
+
+            # num_channel = pred.shape[2]
+            # for i in range(num_channel):
+            #     plt.subplot(3, 6, i+2)
+            #     h = pred[:,:,i]
+            #     # temp = h.ravel()
+            #     # temp = sorted(temp)
+            #     # max_10 = temp[-FLAGS.max_pixel]
+            #     #
+            #     # h[h < max_10] = 0
+            #     # h[h >= max_10] = 1
+            #     plt.imshow(h, cmap='gray')
+            #     plt.title(_KEYPOINTS_LABEL[i])
+            # if FLAGS.show:
+            #     plt.show()
+
+            # if FLAGS.show:
+            #     plt.subplot(2, 2, 1)
+            #     l_knee = pred[:,:,13]
+            #     l_knee[l_knee < 0.5] = 0
+            #     # l_knee[l_knee >= 0.5] = 1
+            #     plt.imshow(l_knee, cmap='gray')
+            #     plt.subplot(222)
+            #     plt.hist(l_knee.ravel(), 200, (0, 1))
+            #     r_knee = pred[:,:,14]
+            #     plt.subplot(223)
+            #     r_knee[r_knee < 0.5] = 0
+            #     plt.imshow(r_knee, cmap='gray')
+            #     plt.subplot(224)
+            #     plt.hist(r_knee.ravel(), 200, (0, 1))
+            #     plt.show()
+
+
 
             loss_list.append(l)
             writer.add_summary(summary_str, global_step=step)
-            writer.flush()
+            # writer.flush()
 
             print('=> STEP %10d [TRAIN]:\tloss:%7.4f\t lr: %.4f' %(step, l, lr))
 
