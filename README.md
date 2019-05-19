@@ -6,8 +6,9 @@ COCOデータセットの人間の姿勢推定のTensorflowでの実装
 - [x] You can define the model yourself
 - [x] Download Backbone network
 - [x] COCO dataset converter to tfrecord
-- [x] Training Pipeling
-- [ ] Visualize script (Future Implementation)
+- [x] Training Pipeline
+- [x] Visualize script
+- [ ] evaluate script (future implement)
 
 ## part2. Train on COCO dataset.
 ---
@@ -22,17 +23,22 @@ $cd pose_estimation
 ```
 $cd data
 $python setup.py --pre_trained=resnet_v1_50 \
-                    --dataset_type=val
+                 --dataset_type=val
 ```
 
 3. データセットを、tfrecordに変換する。(ディレクトリ`data`内で実行)
 ```
 $python build_coco_data.py --image_dir=./cocodevkit/dataset/val2017 \
-                             --annotation_file=./cocodevkit/dataset/annotations/person_keypoints_val2017.json \
-                             --output_dir=./cocodevkit/tfrecord
+                           --annotation_file=./cocodevkit/dataset/annotations/person_keypoints_val2017.json \
+                           --output_dir=./cocodevkit/tfrecord
 ```
 
-4. 学習.
+4. 学習.以下のスクリプトを使い、学習を行う。ラーニングレートやバッチサイズは`train.sh`内で設定できる。
 ```
-$python train.py 
+$sh train.sh
 ```
+
+5. 評価
+
+
+6. 可視化
