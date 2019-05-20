@@ -234,39 +234,6 @@ def main(unused_argv):
             if FLAGS.show:
                 visualize_heatmaps(img, predict=pred)
 
-            # num_channel = pred.shape[2]
-            # for i in range(num_channel):
-            #     plt.subplot(3, 6, i+2)
-            #     h = pred[:,:,i]
-            #     # temp = h.ravel()
-            #     # temp = sorted(temp)
-            #     # max_10 = temp[-FLAGS.max_pixel]
-            #     #
-            #     # h[h < max_10] = 0
-            #     # h[h >= max_10] = 1
-            #     plt.imshow(h, cmap='gray')
-            #     plt.title(_KEYPOINTS_LABEL[i])
-            # if FLAGS.show:
-            #     plt.show()
-
-            # if FLAGS.show:
-            #     plt.subplot(2, 2, 1)
-            #     l_knee = pred[:,:,13]
-            #     l_knee[l_knee < 0.5] = 0
-            #     # l_knee[l_knee >= 0.5] = 1
-            #     plt.imshow(l_knee, cmap='gray')
-            #     plt.subplot(222)
-            #     plt.hist(l_knee.ravel(), 200, (0, 1))
-            #     r_knee = pred[:,:,14]
-            #     plt.subplot(223)
-            #     r_knee[r_knee < 0.5] = 0
-            #     plt.imshow(r_knee, cmap='gray')
-            #     plt.subplot(224)
-            #     plt.hist(r_knee.ravel(), 200, (0, 1))
-            #     plt.show()
-
-
-
             loss_list.append(l)
             writer.add_summary(summary_str, global_step=step)
             # writer.flush()
