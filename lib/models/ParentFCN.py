@@ -20,7 +20,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, 'm
 
 # user packages
 from core.config import BACKBONE_NAME_LIST, R_MEAN, G_MEAN, B_MEAN
-from preprocessing import vgg_preprocessing
 
 class ParentFCN:
     def __init__(self, is_use_bn=False):
