@@ -109,7 +109,7 @@ _SMALL_RADIUS_KEYPOINTS = [
     'left_eye',
     'right_eye',
     'left_ear',
-    'right_aer'
+    'right_ear'
 ]
 
 # this indexes correspond to up keypoint_label.

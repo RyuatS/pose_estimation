@@ -331,8 +331,7 @@ class CocoLoader():
 
 if __name__ == '__main__':
     # define the dataset directory and coco dataset type.
-    # dataDir = '/Users/User/dataset'
-    dataDir = '/home/ryutashitomi/coco'
+    dataDir = './dataset'
     parser = argparse.ArgumentParser(description='This file contains coco dataset loader for single person pose estimation')
     parser.add_argument('--data_type',
                         help='coco datatype example) val2017',
