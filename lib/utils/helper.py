@@ -168,13 +168,14 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
         print('There is nothing to plot')
 
 
-def visualize_keypoints(image, predict_heatmap=None):
+def visualize_keypoints(image, predict_heatmap=None, is_save=False):
     """
     visualize keypoints using line.
 
     Args:
-        image: input image. [height, width, 3]
+        image : input image. [height, width, 3]
         predict_heatmap : heatmaps which is outputed from model.
+        is_save : is save?
     """
 
     keypoint_loc_list = []
@@ -187,6 +188,10 @@ def visualize_keypoints(image, predict_heatmap=None):
         threshold = h_flatten[-20]
         h[h < threshold] = 0
         h[h > threshold] = 1
+        
+        if threshold <= 0:
+            keypoint_loc_list.append(None)
+            continue
 
         width_sum = np.sum(h, axis=0).flatten()
         height_sum = np.sum(h, axis=1).flatten()
@@ -203,7 +208,6 @@ def visualize_keypoints(image, predict_heatmap=None):
             if height_sum[y] >= 1:
                 loc_y += y
                 count_y += 1
-
         key_x = loc_x // count_x
         key_y = loc_y // count_y
         keypoint_loc_list.append([key_x, key_y])
@@ -212,11 +216,20 @@ def visualize_keypoints(image, predict_heatmap=None):
         index1, index2 = CON
         key1 = keypoint_loc_list[index1]
         key2 = keypoint_loc_list[index2]
-        cv2.line(image, tuple(key1), tuple(key2), (255, 0, 0), 2)
-
+        if key1 and key2:
+            cv2.line(image, tuple(key1), tuple(key2), (255, 0, 0), 2)
+        else:
+            continue
+     
     for i in range(len(keypoint_loc_list)):
-        x, y = keypoint_loc_list[i]
-        plt.scatter(x, y, label=_KEYPOINTS_LABEL[i])
+        if keypoint_loc_list[i] is not None:
+            x, y = keypoint_loc_list[i]
+            plt.scatter(x, y, label=_KEYPOINTS_LABEL[i])
+        else:
+            continue
+            
     plt.imshow(image.astype(np.uint8))
     plt.legend()
+    if is_save:
+        cv2.imwrite('vis_keypoint_result.png', cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
     plt.show()

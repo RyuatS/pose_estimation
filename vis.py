@@ -21,17 +21,21 @@ import lib.utils.helper as helper
 
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('check_dir',
-                           './checkpoints_dir',
+tf.app.flags.DEFINE_string('checkpoint_dir',
+                           './checkpoints',
                            'checkpoints directory')
 
 tf.app.flags.DEFINE_string('image_path',
-                           './data/demo/god.jpg',
+                           './data/demo/ski.jpg',
                            'image you want to predict keypoints')
 
 tf.app.flags.DEFINE_boolean('is_separate',
                            False,
                            'whether you visualize heatmaps separately or not.')
+
+tf.app.flags.DEFINE_boolean('is_save_image',
+                            False,
+                            'Do you save the keypoints estimation image?')
 
 
 def main(argv):
@@ -52,7 +56,7 @@ def main(argv):
     if np.max(load_image) <= 1:
         load_image = load_image * 255
 
-    checkpoint = tf.train.get_checkpoint_state(FLAGS.check_dir)
+    checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
 
     if checkpoint:
         saver = tf.train.Saver()
@@ -64,7 +68,7 @@ def main(argv):
 
         helper.visualize_heatmaps(load_image, predict=res, is_separate=FLAGS.is_separate)
 
-        helper.visualize_keypoints(load_image, predict_heatmap=res)
+        helper.visualize_keypoints(load_image, predict_heatmap=res, is_save=FLAGS.is_save_image)
 
     else:
         raise ValueError("'{}' does not exist".format(FLAGS.check_dir))
