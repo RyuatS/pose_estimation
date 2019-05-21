@@ -17,42 +17,55 @@ R_MEAN = 123.68
 G_MEAN = 116.78
 B_MEAN = 103.94
 
-_KEYPOINTS_LABEL = [
-    'nose',             # 0
-    'left_eye',         # 1
-    'right_eye',        # 2
-    'left_ear',         # 3
-    'right_ear',        # 4
-    'left_shoulder',    # 5
-    'right_shoulder',   # 6
-    'left_elbow',       # 7
-    'right_elbow',      # 8
-    'left_wrist',       # 9
-    'right_wrist',      # 10
-    'left_hip',         # 11
-    'right_hip',        # 12
+KEYPOINTS_LABEL = [
+    'nose',             # 0 Upper
+    'left_eye',         # 1 Upper
+    'right_eye',        # 2 Upper
+    'left_ear',         # 3 Upper
+    'right_ear',        # 4 Upper
+    'left_shoulder',    # 5 Upper
+    'right_shoulder',   # 6 Upper
+    'left_elbow',       # 7 Upper
+    'right_elbow',      # 8 Upper
+    'left_wrist',       # 9 Upper
+    'right_wrist',      # 10 Upper
+    'left_hip',         # 11 Upper
+    'right_hip',        # 12 Upper
     'left_knee',        # 13
     'right_knee',       # 14
     'left_ankle',       # 15
     'right_ankle'       # 16
 ]
 
-SKELETON = [[15, 13],
-            [13, 11],
-            [16, 14],
-            [14, 12],
-            [11, 12],
-            [5, 11],
-            [6, 12],
-            [5, 6],
-            [5, 7],
-            [6, 8],
-            [7, 9],
-            [8, 10],
-            [1, 2],
-            [0, 1],
-            [0, 2],
-            [1, 3],
-            [2, 4],
-            [3, 5],
-            [4, 6]]
+SKELETON = [[15, 13],   # left_ankle     - left_knee
+            [13, 11],   # left_knee      - left_hip
+            [16, 14],   # right_ankle    - right_knee
+            [14, 12],   # right_knee     - right_hip
+            [11, 12],   # left_hip       - right_hip
+            [5, 11],    # left_shoulder  - left_hip
+            [6, 12],    # right_shoulder - right_hip
+            [5, 6],     # left_shoulder  - right_shoulder
+            [5, 7],     # left_shoulder  - left_elbow
+            [6, 8],     # right_shoulder - right_elbow
+            [7, 9],     # left_elbow     - left_wrist
+            [8, 10],    # right_elbow    - right_wrist
+            [1, 2],     # left_eye       - right_eye
+            [0, 1],     # nose           - left_eye
+            [0, 2],     # nose           - right_eye
+            [1, 3],     # left_eye       - left_ear
+            [2, 4],     # right_eye      - right_ear
+            [3, 5],     # left_ear       - left_shoulder
+            [4, 6]]     # right_ear      - right_shoulder
+
+SMALL_RADIUS_KEYPOINTS = [
+    'nose',
+    'left_eye',
+    'right_eye',
+    'left_ear',
+    'right_ear'
+]
+
+# this indexes correspond to up keypoint_label.
+ALL_BODY_LABEL = [i for i in range(17)]
+UPPER_BODY_LABEL = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+RESIZE_SHAPE = (256, 192) # (HEIGHT, WIDTH)
