@@ -23,7 +23,7 @@ from tensorflow.contrib.distributions import MultivariateNormalDiag
 import sys
 import os
 import cv2
-from lib.core.config import _KEYPOINTS_LABEL, SKELETON
+from lib.core.config import KEYPOINTS_LABEL, SKELETON
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir))
 from core.config import R_MEAN, G_MEAN, B_MEAN
@@ -78,6 +78,36 @@ def create_heatmap_numpy(heatmap_shape, keypoint, sigma=1.0, is_norm=True):
 
     return heatmap
 
+
+def create_heatmap_for_sigmoid(heatmap_shape, keypoint, radius=10):
+    """
+    クロスエントロピー誤差用のヒートマップを作成する。
+    作り方は、キーポイントの位置から半径がradiusの円の内部の値を１にする。
+    それ以外は、0にする。
+
+    Args:
+        heatmap_shape: heatmap shape that you hope. (height, width)
+        keypoint: tuple or list. keypoint location (x, y).
+        radius: 半径
+
+    Return:
+        heatmap
+    """
+    height, width = heatmap_shape[0], heatmap_shape[1]
+    heatmap = np.zeros((height, width))
+    key_x, key_y = keypoint
+
+    for height_loc in range(height):
+        for width_loc in range(width):
+            distance_to_key = abs(key_x - width_loc) ** 2 + abs(key_y - height_loc) ** 2
+            distance_to_key = np.sqrt(distance_to_key)
+
+            if distance_to_key <= radius:
+                heatmap[height_loc, width_loc] = 1
+
+    return heatmap
+
+
 sess = tf.Session()
 def create_heatmap(img, keypoint, sigma=1.0):
     """
@@ -117,7 +147,8 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
         predict    : predict heatmaps. [height, widht, the number of keypoints]. The number of keypoints hould be 17.
         is_separate : whether heatmaps separate or not.
     """
-
+    if image.dtype == np.float32 and np.max(image) >= 1:
+        image = image.astype(np.uint8)
     plot_rows, plot_cols = 3, 6
     plt.figure(figsize=(12, 10))
     if target is not None:
@@ -126,11 +157,10 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
             plt.subplot(plot_rows, plot_cols, 1)
             plt.imshow(image)
             plt.title('input image')
-            image = image.astype(np.float32)
             for index in range(num_keys):
                 plt.subplot(plot_rows, plot_cols, index+2)
                 plt.imshow(target[:, :, index], cmap='gray')
-                plt.title(_KEYPOINTS_LABEL[index])
+                plt.title(KEYPOINTS_LABEL[index])
         else:
             image = image.astype(np.float32)
             gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -148,11 +178,10 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
             plt.subplot(plot_rows, plot_cols, 1)
             plt.imshow(image)
             plt.title('input image')
-            image = image.astype(np.float32)
             for index in range(num_keys):
                 plt.subplot(plot_rows, plot_cols, index+2)
                 plt.imshow(predict[:, :, index], cmap='gray')
-                plt.title(_KEYPOINTS_LABEL[index])
+                plt.title(KEYPOINTS_LABEL[index])
         else:
             image = image.astype(np.float32)
             gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -176,6 +205,9 @@ def visualize_keypoints(image, predict_heatmap=None, is_save=False):
         image : input image. [height, width, 3]
         predict_heatmap : heatmaps which is outputed from model.
         is_save : is save?
+
+    Return:
+        image which is written to keypoints.
     """
 
     keypoint_loc_list = []
@@ -188,7 +220,7 @@ def visualize_keypoints(image, predict_heatmap=None, is_save=False):
         threshold = h_flatten[-20]
         h[h < threshold] = 0
         h[h > threshold] = 1
-        
+
         if threshold <= 0:
             keypoint_loc_list.append(None)
             continue
@@ -220,16 +252,18 @@ def visualize_keypoints(image, predict_heatmap=None, is_save=False):
             cv2.line(image, tuple(key1), tuple(key2), (255, 0, 0), 2)
         else:
             continue
-     
+
     for i in range(len(keypoint_loc_list)):
         if keypoint_loc_list[i] is not None:
             x, y = keypoint_loc_list[i]
-            plt.scatter(x, y, label=_KEYPOINTS_LABEL[i])
+            plt.scatter(x, y, label=KEYPOINTS_LABEL[i])
         else:
             continue
-            
+
     plt.imshow(image.astype(np.uint8))
     plt.legend()
     if is_save:
         cv2.imwrite('vis_keypoint_result.png', cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
     plt.show()
+
+    return image.astype(np.uint8)
