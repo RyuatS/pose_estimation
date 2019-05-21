@@ -13,7 +13,7 @@ from tensorflow.python.framework import graph_util
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
-from lib.core.config import BACKBONE_NAME_LIST, _KEYPOINTS_LABEL
+from lib.core.config import BACKBONE_NAME_LIST
 
 # user packages
 from lib.models.hourglass import Hourglass
@@ -26,7 +26,7 @@ tf.app.flags.DEFINE_string('checkpoint_dir',
                            'checkpoints directory')
 
 tf.app.flags.DEFINE_string('image_path',
-                           './data/demo/ski.jpg',
+                           './data/demo/ski.png',
                            'image you want to predict keypoints')
 
 tf.app.flags.DEFINE_boolean('is_separate',
