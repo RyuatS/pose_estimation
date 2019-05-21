@@ -508,9 +508,12 @@ class ParentFCN:
 
                 elif key.startswith('pool'):
                     strides = self.model_structure[key]['strides']
-                    self.layers[key] = self.avg_pool(pre_layer, name=key, strides=strides)
-
-                    self.num_parms_each_layer[key] = 0
+                    pool_type = self.model_structure[key]['pool_type']
+                    if pool_type == 'average':
+                        self.layers[key] = self.avg_pool(pre_layer, name=key, strides=strides)
+                    elif pool_type == 'max':
+                        self.layers[key] = self.max_pool(pre_layer, name=key, strides=strides)
+                    self.num_params_each_layer[key] = 0
 
                 elif key.startswith('gray'):
                     if pre_layer.get_shape()[3] == 6:
