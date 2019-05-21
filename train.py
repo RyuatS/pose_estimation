@@ -25,7 +25,8 @@ import sys
 from lib.utils import helper
 from data.dataset_generator import Dataset
 from lib.models.hourglass import Hourglass
-from lib.core.config import BACKBONE_NAME_LIST, _KEYPOINTS_LABEL
+from lib.models.stacked_hourglass import StackedHourglass
+from lib.core.config import BACKBONE_NAME_LIST
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -65,9 +66,10 @@ tf.app.flags.DEFINE_boolean('show',
                             False,
                             '')
 
-tf.app.flags.DEFINE_integer('max_pixel',
-                             200,
-                             '')
+tf.app.flags.DEFINE_enum('model_type',
+                           'hourglass',
+                           ['hourglass', 'stacked'],
+                           'model type which should be defined ./lib/models/')
 
 def visualize_flags():
     """
@@ -82,67 +84,21 @@ def visualize_flags():
     print('-' * 40)
 
 
-def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
-    """
-    visualize input image, target heatmaps and heatmaps.
-
-    Args:
-        image       : input image. [height, width, channel].
-        target      : target heatmaps. [height, width, the number of keypoints]. The number of keypoints should be 17.
-        predict    : predict heatmaps. [height, widht, the number of keypoints]. The number of keypoints hould be 17.
-        is_separate : whether heatmaps separate or not.
-    """
-
-    plot_rows, plot_cols = 3, 6
-    plt.figure(figsize=(12, 10))
-    if target is not None:
-        num_keys = target.shape[2]
-        if is_separate:
-            plt.subplot(plot_rows, plot_cols, 1)
-            plt.imshow(image)
-            plt.title('input image')
-            for index in range(num_keys):
-                plt.subplot(plot_rows, plot_cols, index+2)
-                plt.imshow(target[:, :, index], cmap='gray')
-                plt.title(_KEYPOINT_LABEL[index])
-        else:
-            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-            if np.max(gray) > 1:
-                gray = gray / 255
-            _2d_heatmap = np.max(target, axis=2)
-            gray = (gray + _2d_heatmap) / 2
-
-            plt.imshow(gray, cmap='gray')
-        plt.show()
-
-    if predict is not None:
-        num_keys = predict.shape[2]
-        if is_separate:
-            plt.subplot(plot_rows, plot_cols, 1)
-            plt.imshow(image)
-            plt.title('input image')
-            for index in range(num_keys):
-                plt.subplot(plot_rows, plot_cols, index)
-                plt.imshow(predict[:, :, index], cmap='gray')
-                plt.title(_KYEPOINT_LABEL[index])
-        else:
-            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-            if np.max(gray) > 1:
-                gray /= 255
-            _2d_heatmap = np.max(predict, axis=2)
-            gray  = (gray + _2d_heatmap) / 2
-
-            plt.imshow(gray, cmap='gray')
-        plt.show()
-
-    if (predict is None) and (target is None):
-        print('There is nothing to plot')
-
 def main(unused_argv):
     config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
     sess = tf.Session(config = config)
 
     visualize_flags()
+
+    if FLAGS.model_type == 'hourglass':
+        model = Hourglass(is_use_bn=True, num_keypoints=17)
+
+        resize = (128, 96)
+
+    elif FLAGS.model_type == 'stacked':
+        model = StackedHourglass(is_use_bn=True)
+
+        resize = (64, 48)
 
     batch_size = FLAGS.batch_size
     input_size = (256, 192)
@@ -150,7 +106,7 @@ def main(unused_argv):
                       FLAGS.data_type,
                       batch_size,
                       input_size,
-                      resize=(128, 96),
+                      resize=resize,
                       should_repeat=True,
                       should_shuffle=True)
 
@@ -160,9 +116,7 @@ def main(unused_argv):
     image = mini_batch['image']
     heatmaps = mini_batch['heatmaps']
     image = tf.cast(image, tf.float32)
-    model = Hourglass(is_use_bn=True, num_keypoints=17)
-    logits, savers = model.build(image, 'Hourglass', is_training=True, visualize=True)
-
+    logits, savers = model.build(image, 'Model', is_training=True, visualize=True)
     # global step holder
     global_step = tf.Variable(0, name='global_step')
     global_step_holder = tf.placeholder(tf.int32)
@@ -232,7 +186,7 @@ def main(unused_argv):
             pred = cv2.resize(pred, (192, 256))
 
             if FLAGS.show:
-                visualize_heatmaps(img, predict=pred)
+                helper.visualize_heatmaps(img, predict=pred, is_separate=True)
 
             loss_list.append(l)
             writer.add_summary(summary_str, global_step=step)
