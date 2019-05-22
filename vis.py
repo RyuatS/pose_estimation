@@ -59,21 +59,16 @@ def main(argv):
     if np.max(load_image) <= 1:
         load_image = load_image * 255
 
-    checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+    saver, checkpoint_path = helper.create_saver_and_restore(sess, FLAGS.checkpoint_dir)
+    # checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
 
-    if checkpoint:
-        saver = tf.train.Saver()
-        saver.restore(sess, checkpoint.model_checkpoint_path)
-        res = sess.run(logits, feed_dict={image: np.expand_dims(load_image, axis=0)})
+    res = sess.run(logits, feed_dict={image: np.expand_dims(load_image, axis=0)})
+    res = res[0]
+    helper.visualize_heatmaps(load_image, predict=res, is_separate=FLAGS.is_separate)
+    helper.visualize_keypoints(load_image, predict_heatmap=res, is_save=FLAGS.is_save_image)
 
-        res = res[0]
+    
 
-        helper.visualize_heatmaps(load_image, predict=res, is_separate=FLAGS.is_separate)
-
-        helper.visualize_keypoints(load_image, predict_heatmap=res, is_save=FLAGS.is_save_image)
-
-    else:
-        raise ValueError("'{}' does not exist".format(FLAGS.check_dir))
 
 
 if __name__ == '__main__':

@@ -149,9 +149,14 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
     """
     if image.dtype == np.float32 and np.max(image) >= 1:
         image = image.astype(np.uint8)
+
+
     plot_rows, plot_cols = 3, 6
     plt.figure(figsize=(12, 10))
     if target is not None:
+        if image.shape[:2] != target.shape[:2]:
+            target = cv2.resize(target, (image.shape[1], image.shape[0]))
+
         num_keys = target.shape[2]
         if is_separate:
             plt.subplot(plot_rows, plot_cols, 1)
@@ -173,6 +178,9 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
         plt.show()
 
     if predict is not None:
+        if image.shape[:2] != predict.shape[:2]:
+            predict = cv2.resize(predict, (image.shape[1], image.shape[0]))
+
         num_keys = predict.shape[2]
         if is_separate:
             plt.subplot(plot_rows, plot_cols, 1)
@@ -267,3 +275,45 @@ def visualize_keypoints(image, predict_heatmap=None, is_save=False):
     plt.show()
 
     return image.astype(np.uint8)
+
+
+def create_saver_and_restore(session, checkpoints_dir, backbone_name=None):
+    """
+    create saver and restore.
+
+    Args:
+        session        : tensorflow session
+        checkpoints_dir: checkpoint directory.
+        backbone_name  : backbone name. もしも、バックボーンを使用する場合に指定する。
+                        　example) resnet_v1_101
+
+    Return:
+        saver, checkopint_path
+    """
+    saver = tf.train.Saver()
+    checkpoint = tf.train.get_checkpoint_state(checkpoints_dir)
+    if checkpoint:
+        print('\n\n' + checkpoint.model_checkpoint_path)
+        print('variables were restored from {}.'.format(checkpoint.model_checkpoint_path))
+        saver.restore(session, checkpoint.model_checkpoint_path)
+    else:
+        sess.run(tf.global_variables_initializer())
+        print('variables were initialized.')
+
+        # load backbone weights
+        if backbone_name is not None:
+            backbone_vars = tf.contrib.framework.get_variables_to_restore(include=[backbone_name])
+            backbone_saver = tf.train.Saver(var_list=backbone_vars)
+            backbone_checkpoint_path = os.path.join(os.pardir,
+                                                    os.pardir,
+                                                    'backbone_checkpoints',
+                                                    '{}.ckpt'.format(backbone_name))
+            backbone_saver.restore(session, backbone_checkpoint_path)
+            print('{} weights were restored.'.format(backbone_name))
+
+    # checkpoint_path
+    checkpoint_path = os.path.join(checkpoints_dir, 'model.ckpt')
+    if not os.path.exists(checkpoints_dir):
+        os.makedirs(checkpoints_dir)
+
+    return saver, checkpoint_path

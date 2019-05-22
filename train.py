@@ -142,31 +142,10 @@ def main(unused_argv):
     logits = tf.nn.sigmoid(logits)
 
     ####################### setting saver ###########################
-    global_saver = tf.train.Saver()
-    checkpoint = tf.train.get_checkpoint_state(checkpoints_dir)
-    if checkpoint:
-        print('\n\n' + checkpoint.model_checkpoint_path)
-        print('variables were restored.')
-        global_saver.restore(sess, checkpoint.model_checkpoint_path)
-    else:
-        sess.run(tf.global_variables_initializer())
-        print('variables were initialized.')
-
-        # load backbone weights
-        if 'backbone' in model.model_structure.keys():
-            pretrained_name = model.model_structure['backbone']['net']
-            backbone_vars = tf.contrib.framework.get_variables_to_restore(include=[pretrained_name])
-            pretrained_saver = tf.train.Saver(var_list=backbone_vars)
-            pretrained_checkpoint = os.path.join('.',
-                                                 'backbone_checkpoints',
-                                                 '{}.ckpt'.format(pretrained_name))
-            pretrained_saver.restore(sess, pretrained_checkpoint)
-            print('{} weights were restored.'.format(pretrained_name))
-
-    # checkpoint_path
-    checkpoint_path = os.path.join(checkpoints_dir, 'model.ckpt')
-    if not os.path.exists(checkpoints_dir):
-        os.makedirs(checkpoints_dir)
+    backbone_name = None
+    if 'backbone' in model.model_structure.keys():
+        backbone_name = model.model_structure['backbone']['net']
+    global_saver, checkpoint_path = helper.create_saver_and_restore(sess, checkpoints_dir, backbone_name)
     step = sess.run(global_step)
     #################################################################
 
