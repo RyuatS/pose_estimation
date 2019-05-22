@@ -8,17 +8,20 @@
 # ===============================================
 
 # lib
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 from tensorflow.python.framework import graph_util
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
-from lib.core.config import BACKBONE_NAME_LIST
 
 # user packages
 from lib.models.hourglass import Hourglass
+from lib.core.config import BACKBONE_NAME_LIST
 import lib.utils.helper as helper
 
+tf.logging.set_verbosity(tf.logging.FATAL)
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('checkpoint_dir',
