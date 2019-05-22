@@ -37,25 +37,27 @@ KEYPOINTS_LABEL = [
     'right_ankle'       # 16
 ]
 
-SKELETON = [[15, 13],   # left_ankle     - left_knee
-            [13, 11],   # left_knee      - left_hip
-            [16, 14],   # right_ankle    - right_knee
-            [14, 12],   # right_knee     - right_hip
-            [11, 12],   # left_hip       - right_hip
-            [5, 11],    # left_shoulder  - left_hip
-            [6, 12],    # right_shoulder - right_hip
-            [5, 6],     # left_shoulder  - right_shoulder
-            [5, 7],     # left_shoulder  - left_elbow
-            [6, 8],     # right_shoulder - right_elbow
-            [7, 9],     # left_elbow     - left_wrist
-            [8, 10],    # right_elbow    - right_wrist
-            [1, 2],     # left_eye       - right_eye
-            [0, 1],     # nose           - left_eye
-            [0, 2],     # nose           - right_eye
-            [1, 3],     # left_eye       - left_ear
-            [2, 4],     # right_eye      - right_ear
-            [3, 5],     # left_ear       - left_shoulder
-            [4, 6]]     # right_ear      - right_shoulder
+SKELETON = [
+        [15, 13, (255, 0, 0)],   # left_ankle     - left_knee
+        [13, 11, (255, 0, 0)],   # left_knee      - left_hip
+        [5,  11, (255, 0, 0)],   # left_shoulder  - left_hip
+        [5,   7, (255, 0, 0)],   # left_shoulder  - left_elbow
+        [7,   9, (255, 0, 0)],   # left_elbow     - left_wrist
+        [16, 14, (0, 0, 255)],   # right_ankle    - right_knee
+        [14, 12, (0, 0, 255)],   # right_knee     - right_hip
+        [6,  12, (0, 0, 255)],   # right_shoulder - right_hip
+        [6,   8, (0, 0, 255)],   # right_shoulder - right_elbow
+        [8,  10, (0, 0, 255)],   # right_elbow    - right_wrist
+        [5,   6, (255, 0, 255)], # left_shoulder  - right_shoulder
+        [1,   2, (0, 255, 0)],   # left_eye       - right_eye
+        [0,   1, (0, 255, 0)],   # nose           - left_eye
+        [0,   2, (0, 255, 0)],   # nose           - right_eye
+        [1,   3, (0, 255, 0)],   # left_eye       - left_ear
+        [2,   4, (0, 255, 0)]    # right_eye      - right_ear
+]
+        # [11, 12, (255, 0, 255)],   # left_hip       - right_hip
+        # [3, 5],     # left_ear       - left_shoulder
+        # [4, 6]]     # right_ear      - right_shoulder
 
 SMALL_RADIUS_KEYPOINTS = [
     'nose',
