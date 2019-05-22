@@ -10,6 +10,7 @@
 # lib
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import tensorflow as tf
 from tensorflow.python.framework import graph_util
 import matplotlib.pyplot as plt
@@ -67,7 +68,7 @@ def main(argv):
     helper.visualize_heatmaps(load_image, predict=res, is_separate=FLAGS.is_separate)
     helper.visualize_keypoints(load_image, predict_heatmap=res, is_save=FLAGS.is_save_image)
 
-    
+
 
 
 

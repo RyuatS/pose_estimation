@@ -164,7 +164,7 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
             plt.title('input image')
             for index in range(num_keys):
                 plt.subplot(plot_rows, plot_cols, index+2)
-                plt.imshow(target[:, :, index], cmap='gray')
+                plt.imshow(target[:, :, index], cmap='viridis')
                 plt.title(KEYPOINTS_LABEL[index])
         else:
             image = image.astype(np.float32)
@@ -186,9 +186,10 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
             plt.subplot(plot_rows, plot_cols, 1)
             plt.imshow(image)
             plt.title('input image')
+            plt.colorbar()
             for index in range(num_keys):
                 plt.subplot(plot_rows, plot_cols, index+2)
-                plt.imshow(predict[:, :, index], cmap='gray')
+                plt.imshow(predict[:, :, index], cmap='viridis')
                 plt.title(KEYPOINTS_LABEL[index])
         else:
             image = image.astype(np.float32)
@@ -280,7 +281,7 @@ def visualize_keypoints(image, predict_heatmap=None, is_save=False):
         if keypoint_loc_list[i] is not None:
             x, y = keypoint_loc_list[i]
             plt.scatter(x, y, label=KEYPOINTS_LABEL[i])
-        
+
 
     plt.imshow(image.astype(np.uint8))
     plt.legend()
@@ -311,16 +312,14 @@ def create_saver_and_restore(session, checkpoints_dir, backbone_name=None):
         print('variables were restored from {}.'.format(checkpoint.model_checkpoint_path))
         saver.restore(session, checkpoint.model_checkpoint_path)
     else:
-        sess.run(tf.global_variables_initializer())
+        session.run(tf.global_variables_initializer())
         print('variables were initialized.')
 
         # load backbone weights
         if backbone_name is not None:
             backbone_vars = tf.contrib.framework.get_variables_to_restore(include=[backbone_name])
             backbone_saver = tf.train.Saver(var_list=backbone_vars)
-            backbone_checkpoint_path = os.path.join(os.pardir,
-                                                    os.pardir,
-                                                    'backbone_checkpoints',
+            backbone_checkpoint_path = os.path.join('backbone_checkpoints',
                                                     '{}.ckpt'.format(backbone_name))
             backbone_saver.restore(session, backbone_checkpoint_path)
             print('{} weights were restored.'.format(backbone_name))

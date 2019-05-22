@@ -23,6 +23,9 @@ import urllib.request, shutil, tarfile, zipfile
 import threading
 import tensorflow as tf
 
+sys.path.append(os.path.realpath(os.pardir))
+os.chdir(os.pardir)
+
 # user packages
 from lib.core.config import BACKBONE_NAME_LIST
 
