@@ -64,7 +64,6 @@ def main(argv):
         res = sess.run(logits, feed_dict={image: np.expand_dims(load_image, axis=0)})
 
         res = res[0]
-        res = cv2.resize(res, (192, 256))
 
         helper.visualize_heatmaps(load_image, predict=res, is_separate=FLAGS.is_separate)
 

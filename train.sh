@@ -19,4 +19,4 @@ python train.py --checkpoints_dir=./checkpoints \
                 --learning_rate_decay_factor=0.1 \
                 --learning_rate_decay_step=1000  \
                 --weight_decay=0.00005           \
-                
+                --model_type=hourglass

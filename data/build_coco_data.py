@@ -163,7 +163,7 @@ def _convert_dataset(loader):
                         if keypoint_name in SMALL_RADIUS_KEYPOINTS:
                             radius = 3
                         else:
-                            radius = 10
+                            radius = 6
                         heatmap = helper.create_heatmap_for_sigmoid(RESIZE_SHAPE, (key_resized_x, key_resized_y), radius=radius)
 
                     heatmaps = np.dstack((heatmaps, heatmap))

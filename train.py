@@ -15,6 +15,7 @@ training script for single human pose estimation.
 # lib
 import time
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import cv2
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -28,6 +29,7 @@ from lib.models.hourglass import Hourglass
 from lib.models.stacked_hourglass import StackedHourglass
 from lib.core.config import BACKBONE_NAME_LIST
 
+tf.logging.set_verbosity(tf.logging.FATAL)
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -76,6 +78,8 @@ def visualize_flags():
     visualize flags
     """
     print('-' * 40)
+    print('flags information')
+    print('-' * 40)
     for key in FLAGS.__flags.keys():
         if key in ['h', 'help', 'helpfull', 'helpshort']:
             pass
@@ -89,6 +93,7 @@ def main(unused_argv):
     sess = tf.Session(config = config)
 
     visualize_flags()
+    checkpoints_dir = os.path.join(FLAGS.checkpoints_dir, FLAGS.model_type)
 
     if FLAGS.model_type == 'hourglass':
         model = Hourglass(is_use_bn=True, num_keypoints=17)
@@ -96,7 +101,7 @@ def main(unused_argv):
         resize = (128, 96)
 
     elif FLAGS.model_type == 'stacked':
-        model = StackedHourglass(is_use_bn=True)
+        model = StackedHourglass(is_use_bn=True, num_keypoints=17)
 
         resize = (64, 48)
 
@@ -116,7 +121,7 @@ def main(unused_argv):
     image = mini_batch['image']
     heatmaps = mini_batch['heatmaps']
     image = tf.cast(image, tf.float32)
-    logits, savers = model.build(image, 'Model', is_training=True, visualize=True)
+    logits, savers = model.build(image, 'Hourglass', is_training=True, visualize=True)
     # global step holder
     global_step = tf.Variable(0, name='global_step')
     global_step_holder = tf.placeholder(tf.int32)
@@ -138,7 +143,7 @@ def main(unused_argv):
 
     ####################### setting saver ###########################
     global_saver = tf.train.Saver()
-    checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoints_dir)
+    checkpoint = tf.train.get_checkpoint_state(checkpoints_dir)
     if checkpoint:
         print('\n\n' + checkpoint.model_checkpoint_path)
         print('variables were restored.')
@@ -159,14 +164,15 @@ def main(unused_argv):
             print('{} weights were restored.'.format(pretrained_name))
 
     # checkpoint_path
-    checkpoint_path = os.path.join(FLAGS.checkpoints_dir, 'model.ckpt')
-    if not os.path.exists(FLAGS.checkpoints_dir):
-        os.makedirs(FLAGS.checkpoints_dir)
+    checkpoint_path = os.path.join(checkpoints_dir, 'model.ckpt')
+    if not os.path.exists(checkpoints_dir):
+        os.makedirs(checkpoints_dir)
     step = sess.run(global_step)
     #################################################################
 
     ################### setting summary writer ######################
-    writer = tf.summary.FileWriter(FLAGS.logdir, sess.graph)
+    tf.summary.scalar('train loss', loss)
+    writer = tf.summary.FileWriter(os.path.join(FLAGS.logdir, FLAGS.model_type), sess.graph)
     writer_op = tf.summary.merge_all()
     #################################################################
 
@@ -179,14 +185,15 @@ def main(unused_argv):
             # print('img.shape: {}, hm.shape: {}'.format(img.shape, hm.shape))
             # print('pred.shape: {}'.format(pred.shape))
 
-            img = img[0]
-            target = target[0]
-            pred = pred[0]
-            target = cv2.resize(target, (192, 256))
-            pred = cv2.resize(pred, (192, 256))
 
             if FLAGS.show:
-                helper.visualize_heatmaps(img, predict=pred, is_separate=True)
+                img = img[0]
+                target = target[0]
+                pred = pred[0]
+                # target = cv2.resize(target, (192, 256))
+                # pred = cv2.resize(pred, (192, 256))
+                # helper.visualize_heatmaps(img, predict=pred, is_separate=True)
+                helper.visualize_keypoints(img, predict_heatmap=pred)
 
             loss_list.append(l)
             writer.add_summary(summary_str, global_step=step)
