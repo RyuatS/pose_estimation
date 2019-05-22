@@ -221,52 +221,66 @@ def visualize_keypoints(image, predict_heatmap=None, is_save=False):
     keypoint_loc_list = []
     num_channel = predict_heatmap.shape[2]
 
+    image_height, image_width = image.shape[:2]
+    heat_height, heat_width = predict_heatmap.shape[:2]
+
+    HEATMAP_THRESHOLD = 0.5
     for i in range(num_channel):
         h = predict_heatmap[:, :, i]
-        h_flatten = sorted(h.ravel())
 
-        threshold = h_flatten[-20]
-        h[h < threshold] = 0
-        h[h > threshold] = 1
-
-        if threshold <= 0:
+        if np.max(h) <= HEATMAP_THRESHOLD:
             keypoint_loc_list.append(None)
             continue
+        max_index = np.unravel_index(np.argmax(h, axis=None), h.shape)
+        key_y, key_x  = max_index
 
-        width_sum = np.sum(h, axis=0).flatten()
-        height_sum = np.sum(h, axis=1).flatten()
-        loc_x = 0
-        loc_y = 0
-        count_x = 0
-        count_y = 0
-        for x in range(len(width_sum)):
-            if width_sum[x] >= 1:
-                loc_x += x
-                count_x += 1
+        key_x = (key_x*image_width)/(heat_width)
+        key_y = (key_y*image_height)/(heat_height)
 
-        for y in range(len(height_sum)):
-            if height_sum[y] >= 1:
-                loc_y += y
-                count_y += 1
-        key_x = loc_x // count_x
-        key_y = loc_y // count_y
-        keypoint_loc_list.append([key_x, key_y])
+        keypoint_loc_list.append([int(key_x), int(key_y)])
+        continue
+        # h_flatten = sorted(h.ravel())
+        #
+        # threshold = h_flatten[-20]
+        # h[h < threshold] = 0
+        # h[h > threshold] = 1
+        #
+        # if threshold <= 0:
+        #     keypoint_loc_list.append(None)
+        #     continue
+        #
+        # width_sum = np.sum(h, axis=0).flatten()
+        # height_sum = np.sum(h, axis=1).flatten()
+        # loc_x = 0
+        # loc_y = 0
+        # count_x = 0
+        # count_y = 0
+        # for x in range(len(width_sum)):
+        #     if width_sum[x] >= 1:
+        #         loc_x += x
+        #         count_x += 1
+        #
+        # for y in range(len(height_sum)):
+        #     if height_sum[y] >= 1:
+        #         loc_y += y
+        #         count_y += 1
+        # key_x = loc_x // count_x
+        # key_y = loc_y // count_y
+        # keypoint_loc_list.append([key_x, key_y])
 
     for CON in SKELETON:
-        index1, index2 = CON
+        index1, index2, color = CON
         key1 = keypoint_loc_list[index1]
         key2 = keypoint_loc_list[index2]
-        if key1 and key2:
-            cv2.line(image, tuple(key1), tuple(key2), (255, 0, 0), 2)
-        else:
-            continue
+        if (key1 is not None) and (key2 is not None):
+            cv2.line(image, tuple(key1), tuple(key2), color, 2)
+
 
     for i in range(len(keypoint_loc_list)):
         if keypoint_loc_list[i] is not None:
             x, y = keypoint_loc_list[i]
             plt.scatter(x, y, label=KEYPOINTS_LABEL[i])
-        else:
-            continue
+        
 
     plt.imshow(image.astype(np.uint8))
     plt.legend()
