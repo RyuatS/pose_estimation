@@ -33,6 +33,18 @@ class ParentFCN:
             self.bn_gamma = {}
             self.bn_beta = {}
 
+        self.layer_funcs = {
+            'conv'     : self.perform_conv,
+            'deconv'   : self.perform_deconv,
+            'backbone' : self.perform_backbone,
+            'pool'     : self.perform_pool,
+            'gray'     : self.convert_gray,
+            'Flatten'  : self.flatten,
+            'reshape'  : self.reshape,
+            'concat'   : self.concat,
+            'residual' : self.residual
+        }
+
 
 
 
@@ -188,8 +200,7 @@ class ParentFCN:
         return out
 
 
-
-    def max_pool(self, input, name, strides=None):
+    def max_pool(self, input, name, strides=None, ksize=[1, 2, 2, 1]):
         """
         perform max pooling to input.
 
@@ -206,7 +217,7 @@ class ParentFCN:
         assert len(strides) == 4
 
         with tf.variable_scope(name):
-            out = tf.nn.max_pool(input, ksize=[1, 2, 2, 1], strides=strides, padding='SAME', name=name)
+            out = tf.nn.max_pool(input, ksize=ksize, strides=strides, padding='SAME', name=name)
 
         return out
 
@@ -269,6 +280,23 @@ class ParentFCN:
         return bias
 
 
+    def get_activation(self, key):
+        """
+        get activation function name.
+
+        Args:
+            key: self.model_structure's key.
+        Return:
+            activation function name.
+        """
+        if 'activation' in self.model_structure[key]['activation']:
+            activation = self.model_structure[key]['activation']
+        else:
+            activation = self.DEFAULT_ACTIVATION
+
+        return activation
+
+
     def perform_conv(self, input, key, is_training):
         """
         perform convolution to input.
@@ -313,6 +341,16 @@ class ParentFCN:
                              dilations=dilations,
                              is_training=is_training,
                              keep_prob=keep_prob)
+
+        # calculate number of parameters
+        num_params = 0
+        num_params = (self.weights[key].get_shape().as_list()[0] *
+                     self.weights[key].get_shape().as_list()[1] *
+                     self.weights[key].get_shape().as_list()[2] *
+                     self.weights[key].get_shape().as_list()[3])
+        num_params += self.biases[key].get_shape().as_list()[0]
+        self.num_params_each_layer[key] = num_params
+
         return output
 
 
@@ -328,7 +366,7 @@ class ParentFCN:
             key: self.model_structure's key.
             is_training: whether now training or not.
         Returns:
-            output performed convolution.
+            output performed deconvolution.
         """
 
         # get deconvolution parameter.
@@ -359,6 +397,15 @@ class ParentFCN:
                                activation='leaky',
                                is_training=is_training)
 
+        # calculate number of parameters
+        num_params = 0
+        num_params = (self.weights[key].get_shape().as_list()[0] *
+                     self.weights[key].get_shape().as_list()[1] *
+                     self.weights[key].get_shape().as_list()[2] *
+                     self.weights[key].get_shape().as_list()[3])
+        num_params += self.biases[key].get_shape().as_list()[0]
+        self.num_params_each_layer[key] = num_params
+
         return output
 
 
@@ -366,8 +413,8 @@ class ParentFCN:
         """
         build backbone and input data to backbone net.
         This function does following steps.
-        1. take layer information (backbone name and output stride) from self.model_structure[key].
-        2. build backbone net.
+        1) take layer information (backbone name and output stride) from self.model_structure[key].
+        2) build backbone net.
 
         Args:
             input       : pre_layer's data.
@@ -415,8 +462,240 @@ class ParentFCN:
         #         write_content = '{}: {}\n'.format(k, end_points[k].get_shape())
         #         f.write(write_content)
 
+        # calculate number of parameters.
+        var_list = tf.contrib.framework.get_variables_to_restore(include=[net_name])
+        num_param = 0
+        for var in var_list:
+            shape = var.get_shape().as_list()
+            param = 1
+            for dim in shape:
+                param *= dim
+            num_param += param
+
+        self.num_params_each_layer[key] = num_param
+
         return net
 
+
+    def perform_dense(self, input, key, is_training):
+        """
+        perform fully-connected layer to input.
+
+        1) get dence parameter(number of units(nodes), keep_prob and activation)
+        2) call dense function with parameter.
+        3) calculate the number of parameters.
+
+        Args:
+            input       : input tensor. [batch, nodes]
+            key         : self.model_structure's key.
+            is_training : whether now training or not.
+        Returns:
+            output performed dense.
+        """
+        units = self.model_structure[key]['units']
+
+        activation = self.get_activation(key)
+        if 'dropout' in self.model_structure[key].keys():
+            keep_prob = self.model_structure[key]['dropout']
+        else:
+            keep_prob = 1.0
+
+        self.num_params_each_layer[key] = units * input.get_shape().as_list()[1]
+
+        output = self.Dense(input, key, units,
+                            activation=activation,
+                            keep_prob=keep_prob,
+                            is_training=is_training)
+
+        return output
+
+
+    def perform_pool(self, input, key, is_training):
+        """
+        perform pooling to input.
+
+        1) get pool information (max pool or avg pool, strides).
+        2) call pooling function with stride.
+
+        Args:
+            input       : input tensor. [batch, nodes]
+            key         : self.model_structure's key.
+            is_training : whether now training or not.
+        Returns:
+            output performed pooling.
+        """
+        strides   = self.model_structure[key]['strides']
+        pool_type = self.model_structure[key]['pool_type']
+
+        if 'kernel' in self.model_structure[key]['kernel']:
+            ksize = self.model_structure[key]['kernel']
+
+        if pool_type == 'average':
+            output = self.avg_pool(pre_layer, name=key, strides=strides, ksize=ksize)
+        elif pool_type == 'max':
+            output = self.max_pool(pre_layer, name=key, strides=strides, ksize=ksize)
+        else:
+            raise ValueError("pool type '{}' is not defined".format(pool_type))
+        self.num_params_each_layer[key] = 0
+
+        return output
+
+
+    def convert_gray(self, input, key, is_training):
+        """
+        convert image to grayscale.
+
+        Args:
+            input       : input tensor. [batch, nodes]
+            key         : self.model_structure's key.
+            is_training : Dummy variable. This is not used in this function.
+        Returns:
+            output converted to grayscale.
+        """
+        # グレイスケールに変換するときの画像がステレオ場合は、それぞれを変換する
+        if input.get_shape()[3] == 6:
+            image1, image2 = tf.split(input, [3, 3], axis=3)
+            gray1 = tf.image.rgb_to_grayscale(image1)
+            gray2 = tf.image.rgb_to_grayscale(image2)
+            output = tf.concat([gray1, gray2], axis=3)
+        else:
+            output = tf.image.rgb_to_grayscale(input)
+
+        self.num_params_each_layer[key] = 0
+
+        return output
+
+
+    def flatten(self, input, key, is_training):
+        """
+        do flatten to input.
+
+        Args:
+            input       : input tensor. [batch, nodes]
+            key         : self.model_structure's key.
+            is_training : Dummy variable. This is not used in this function.
+        Returns:
+            output done flatten.
+        """
+
+        output = tf.layers.Flatten()(input)
+
+        return output
+
+
+    def reshape(self, input, key, is_training):
+        """
+        reshape to input.
+
+        Args:
+            input       : input tensor. [batch, nodes]
+            key         : self.model_structure's key.
+            is_training : Dummy variable. This is not used in this function.
+        Returns:
+            reshaped output.
+        """
+        shape = self.model_structure[key]['shape']
+        output = tf.reshape(input, [-1] + shape)
+
+        return output
+
+
+    def concat(self, input, key, is_training):
+        """
+        concatenate input and self.model_structure[key]['concat_from']
+
+        Args:
+            input       : input tensor. [batch, nodes]
+            key         : self.model_structure's key.
+            is_training : Dummy variable. This is not used in this function.
+        Returns:
+            concatenated output .
+        """
+        layer_name = self.model_structure[key]['concat_from']
+
+        if layer_name.startswith('backbone'):
+            # バックボーンの途中から取り出したい時の処理
+            # example) layer_name = 'backbone/resnet_v1_50/block2'
+            # 'backbone'のあとのレイヤーネームをとりだす。 example) 'backbone/resnet_v1_50/block2' => 'resnet_v1_50/block2'
+            layer_name = layer_name.split('/')[1:]
+            layer_name = '/'.join(layer_name)
+            layer_values = self.backbone_end_points[layer_name]
+        else:
+            layer_values = self.layers[layer_name]
+
+        output = tf.concat([input, layer_values], axis=3)
+        return output
+
+
+    def residual(self, input, key, is_training):
+        """
+        add input and self.model_structure[key]['residual']
+
+        Args:
+            input       : input tensor. [batch, nodes]
+            key         : self.model_structure's key.
+            is_training : Dummy variable. This is not used in this function.
+        Returns:
+            added output.
+        """
+        residual_layer_name = self.model_structure[key]['residual']
+        if residual_layer_name.startswith('backbone'):
+            # example) residual_layer_name = 'backbone/resnet_v1_50/block2'
+            residual_layer_name = residual_layer_name.split('/')[1:]
+            residual_layer_name = '/'.join(residual_layer_name)
+            residual_layer_values = self.backbone_end_points[residual_layer_name]
+        else:
+            residual_layer_values = self.layers[residual_layer_name]
+        output = tf.add(input, residual_layer_values)
+        return output
+
+
+    def build(self, input_img, name, is_training, reuse=False, visualize=False, batch_norm_reuse=False):
+        """
+        Args:
+            input_img        : rgb image batch.
+            is_training      : トレーニング中かどうか
+            reuse            : 同じ重みを使うか
+            visualize        : 層を可視化するか
+            batch_norm_reuse : 他の計算グラフの展開中のbatch_normalizationの値を使うか。
+                               これは、トレーニング中のグラフのbatch_normalizationの値が使われていて、
+                               それとは他に同じ値を使いたい時に用いる。
+        """
+
+        with tf.name_scope(name) as scope:
+            if reuse:
+                scope.reuse_variables()
+
+            # 層を通したあとのテンソルを保持する
+            self.layers = OrderedDict()
+
+            self.layers['input'] = input_img
+            self.num_params_each_layer['input'] = 0
+            pre_layer = input_img
+
+            for key in self.model_structure.keys():
+
+                # model_structureのキー名で処理を決める
+                # layer_funcsにそれぞれの層のキー名と関数を登録する。
+                for func_name in self.layer_funcs.keys():
+                    if key.startswith(func_name):
+                        layer_func = self.layer_funcs[func_name]
+                        break
+
+                self.layers[key] = layer_func(pre_layer, key, is_training=is_training)
+
+                pre_layer = self.layers[key]
+
+                if key not in self.num_params_each_layer.keys():
+                    self.num_params_each_layer[key] = 0
+
+
+
+            if visualize:
+                self.visualize_layers()
+
+            return pre_layer
+    '''
     def build(self, input_img, name, is_training, reuse=False, visualize=False, batch_norm_reuse=False):
         """
         Args:
@@ -469,26 +748,26 @@ class ParentFCN:
                     self.layers[key] = self.perform_conv(pre_layer, key, is_training)
 
                     # calculate number of parameters
-                    num_params = 0
-                    num_params = (self.weights[key].get_shape().as_list()[0] *
-                                 self.weights[key].get_shape().as_list()[1] *
-                                 self.weights[key].get_shape().as_list()[2] *
-                                 self.weights[key].get_shape().as_list()[3])
-                    num_params += self.biases[key].get_shape().as_list()[0]
-                    self.num_params_each_layer[key] = num_params
+                    # num_params = 0
+                    # num_params = (self.weights[key].get_shape().as_list()[0] *
+                    #              self.weights[key].get_shape().as_list()[1] *
+                    #              self.weights[key].get_shape().as_list()[2] *
+                    #              self.weights[key].get_shape().as_list()[3])
+                    # num_params += self.biases[key].get_shape().as_list()[0]
+                    # self.num_params_each_layer[key] = num_params
 
 
                 elif key.startswith('deconv'):
                     self.layers[key] = self.perform_deconv(pre_layer, key, is_training)
 
-                    # calculate number of parameters
-                    num_params = 0
-                    num_params = (self.weights[key].get_shape().as_list()[0] *
-                                 self.weights[key].get_shape().as_list()[1] *
-                                 self.weights[key].get_shape().as_list()[2] *
-                                 self.weights[key].get_shape().as_list()[3])
-                    num_params += self.biases[key].get_shape().as_list()[0]
-                    self.num_params_each_layer[key] = num_params
+                    # # calculate number of parameters
+                    # num_params = 0
+                    # num_params = (self.weights[key].get_shape().as_list()[0] *
+                    #              self.weights[key].get_shape().as_list()[1] *
+                    #              self.weights[key].get_shape().as_list()[2] *
+                    #              self.weights[key].get_shape().as_list()[3])
+                    # num_params += self.biases[key].get_shape().as_list()[0]
+                    # self.num_params_each_layer[key] = num_params
 
                 elif key.startswith('Dense'):
                     units = self.model_structure[key]['units']
@@ -549,17 +828,17 @@ class ParentFCN:
                     self.layers[key] = self.perform_backbone(pre_layer, key, is_training=is_training)
                     net_name = self.model_structure[key]['net']
 
-                    var_list = tf.contrib.framework.get_variables_to_restore(include=[net_name])
-
-                    # calculate number of parameters.
-                    num_param = 0
-                    for var in var_list:
-                        shape = var.get_shape().as_list()
-                        param = 1
-                        for dim in shape:
-                            param *= dim
-                        num_param += param
-                    self.num_params_each_layer[key] = num_param
+                    # var_list = tf.contrib.framework.get_variables_to_restore(include=[net_name])
+                    #
+                    # # calculate number of parameters.
+                    # num_param = 0
+                    # for var in var_list:
+                    #     shape = var.get_shape().as_list()
+                    #     param = 1
+                    #     for dim in shape:
+                    #         param *= dim
+                    #     num_param += param
+                    # self.num_params_each_layer[key] = num_param
                     # self.layers[key] = net
 
                 else:
@@ -601,7 +880,7 @@ class ParentFCN:
             self.visualize_layers()
 
         return pre_layer, savers
-
+    '''
 
     def visualize_layers(self):
         """
