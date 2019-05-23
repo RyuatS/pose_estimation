@@ -25,11 +25,11 @@ import sys
 # user packages
 from lib.utils import helper
 from data.dataset_generator import Dataset
+from lib.models.reshourglass import ResHourglass
 from lib.models.hourglass import Hourglass
-from lib.models.stacked_hourglass import StackedHourglass
 from lib.core.config import BACKBONE_NAME_LIST
 
-from lib.models.hourglassv2 import Hourglassv2
+from lib.models.stacked_hourglass0 import StackedHourglassv2
 
 tf.logging.set_verbosity(tf.logging.FATAL)
 
@@ -71,7 +71,7 @@ tf.app.flags.DEFINE_boolean('show',
 
 tf.app.flags.DEFINE_enum('model_type',
                            'hourglass',
-                           ['hourglass', 'stacked'],
+                           ['reshourglass', 'hourglass', 'stacked'],
                            'model type which should be defined ./lib/models/')
 
 def visualize_flags():
@@ -96,15 +96,17 @@ def main(unused_argv):
     visualize_flags()
     checkpoints_dir = os.path.join(FLAGS.checkpoints_dir, FLAGS.model_type)
 
-    if FLAGS.model_type == 'hourglass':
-        model = Hourglass(is_use_bn=True, num_keypoints=17)
+    if FLAGS.model_type == 'reshourglass':
+        model = ResHourglass(is_use_bn=True, num_keypoints=17)
 
         resize = (128, 96)
 
-    elif FLAGS.model_type == 'stacked':
+    elif FLAGS.model_type == 'hourglass':
         model = StackedHourglass(is_use_bn=True, num_keypoints=17)
 
         resize = (64, 48)
+    elif FLAGS.model_type == 'stacked':
+        model = StackedHourglassv2(is_use_bn=True, num_keypoints=17)
 
     batch_size = FLAGS.batch_size
     input_size = (256, 192)
