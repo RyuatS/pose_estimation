@@ -29,6 +29,8 @@ from lib.models.hourglass import Hourglass
 from lib.models.stacked_hourglass import StackedHourglass
 from lib.core.config import BACKBONE_NAME_LIST
 
+from lib.models.hourglassv2 import Hourglassv2
+
 tf.logging.set_verbosity(tf.logging.FATAL)
 
 FLAGS = tf.app.flags.FLAGS
@@ -96,7 +98,7 @@ def main(unused_argv):
     checkpoints_dir = os.path.join(FLAGS.checkpoints_dir, FLAGS.model_type)
 
     if FLAGS.model_type == 'hourglass':
-        model = Hourglass(is_use_bn=True, num_keypoints=17)
+        model = Hourglassv2(is_use_bn=True, num_keypoints=17)
 
         resize = (128, 96)
 
@@ -121,7 +123,7 @@ def main(unused_argv):
     image = mini_batch['image']
     heatmaps = mini_batch['heatmaps']
     image = tf.cast(image, tf.float32)
-    logits, savers = model.build(image, 'Hourglass', is_training=True, visualize=True)
+    logits = model.build(image, 'Hourglass', is_training=True, visualize=True)
     # global step holder
     global_step = tf.Variable(0, name='global_step')
     global_step_holder = tf.placeholder(tf.int32)
