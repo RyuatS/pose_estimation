@@ -16,11 +16,13 @@ from tensorflow.python.framework import graph_util
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
+import time
 
 # user packages
 from lib.models.hourglass import Hourglass
 from lib.core.config import BACKBONE_NAME_LIST
 import lib.utils.helper as helper
+from lib.models.stacked_hourglass import StackedHourglass
 
 tf.logging.set_verbosity(tf.logging.FATAL)
 
@@ -37,9 +39,17 @@ tf.app.flags.DEFINE_boolean('is_separate',
                            False,
                            'whether you visualize heatmaps separately or not.')
 
-tf.app.flags.DEFINE_boolean('is_save_image',
+tf.app.flags.DEFINE_boolean('is_save',
                             False,
                             'Do you save the keypoints estimation image?')
+tf.app.flags.DEFINE_boolean('is_measure',
+                            False,
+                            'Do you measure the fps about model.')
+
+tf.app.flags.DEFINE_enum('model_type',
+                           'hourglass',
+                           ['hourglass', 'stacked'],
+                           'model type which should be defined ./lib/models/')
 
 
 def main(argv):
@@ -49,10 +59,21 @@ def main(argv):
     input_size = (256, 192)
     image = tf.placeholder(tf.float32, shape=[None, input_size[0], input_size[1], 3], name='input')
 
-    model = Hourglass(is_use_bn=True, num_keypoints=17)
+    if FLAGS.model_type == 'hourglass':
+        model = Hourglass(is_use_bn=True, num_keypoints=17)
+
+        resize = (128, 96)
+
+    elif FLAGS.model_type == 'stacked':
+        model = StackedHourglass(is_use_bn=True, num_keypoints=17)
+
+        resize = (64, 48)
+
+
     logits, _ = model.build(image, 'Hourglass', is_training=False, visualize=True)
 
     logits = tf.nn.sigmoid(logits)
+
 
     load_image = plt.imread(FLAGS.image_path)
     load_image = cv2.resize(load_image, (192, 256))
@@ -63,10 +84,21 @@ def main(argv):
     saver, checkpoint_path = helper.create_saver_and_restore(sess, FLAGS.checkpoint_dir)
     # checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
 
-    res = sess.run(logits, feed_dict={image: np.expand_dims(load_image, axis=0)})
+    time_list = []
+    for _ in range(100):
+        start = time.perf_counter()
+        res = sess.run(logits, feed_dict={image: np.expand_dims(load_image, axis=0)})
+        end = time.perf_counter()
+        time_list.append(end - start)
+
+    if FLAGS.is_measure:
+        plt.boxplot(time_list)
+        plt.title('time')
+        plt.savefig('time_result.png')
+        plt.show()
     res = res[0]
-    helper.visualize_heatmaps(load_image, predict=res, is_separate=FLAGS.is_separate)
-    helper.visualize_keypoints(load_image, predict_heatmap=res, is_save=FLAGS.is_save_image)
+    helper.visualize_heatmaps(load_image, predict=res, is_separate=FLAGS.is_separate, is_save=FLAGS.is_save)
+    helper.visualize_keypoints(load_image, predict_heatmap=res, is_save=FLAGS.is_save)
 
 
 

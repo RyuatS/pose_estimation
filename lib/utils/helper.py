@@ -137,15 +137,16 @@ def create_heatmap(img, keypoint, sigma=1.0):
     return result
 
 
-def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
+def visualize_heatmaps(image, target=None, predict=None, is_separate=False, is_save=False):
     """
     visualize input image, target heatmaps and heatmaps.
 
     Args:
         image       : input image. [height, width, channel].
         target      : target heatmaps. [height, width, the number of keypoints]. The number of keypoints should be 17.
-        predict    : predict heatmaps. [height, widht, the number of keypoints]. The number of keypoints hould be 17.
+        predict     : predict heatmaps. [height, widht, the number of keypoints]. The number of keypoints hould be 17.
         is_separate : whether heatmaps separate or not.
+        is_save     : whether heatmaps save or not.
     """
     if image.dtype == np.float32 and np.max(image) >= 1:
         image = image.astype(np.uint8)
@@ -175,6 +176,8 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
             gray = (gray + _2d_heatmap) / 2
 
             plt.imshow(gray, cmap='gray')
+        if is_save:
+            plt.savefig('result_heatmap.png')
         plt.show()
 
     if predict is not None:
@@ -200,6 +203,9 @@ def visualize_heatmaps(image, target=None, predict=None, is_separate=False):
             gray  = (gray + _2d_heatmap) / 2
 
             plt.imshow(gray, cmap='gray')
+
+        if is_save:
+            plt.savefig('result_heatmap.png')
         plt.show()
 
     if (predict is None) and (target is None):
@@ -283,10 +289,12 @@ def visualize_keypoints(image, predict_heatmap=None, is_save=False):
             plt.scatter(x, y, label=KEYPOINTS_LABEL[i])
 
 
+
     plt.imshow(image.astype(np.uint8))
-    plt.legend()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=18)
     if is_save:
         cv2.imwrite('vis_keypoint_result.png', cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        plt.savefig('vis_keypoint_result2.png')
     plt.show()
 
     return image.astype(np.uint8)
