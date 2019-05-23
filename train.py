@@ -62,7 +62,6 @@ tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.1,
 
 tf.app.flags.DEFINE_integer('learning_rate_decay_step', 2000,
                             'Decay the base learning rate at a fixed step.')
-
 tf.app.flags.DEFINE_float('weight_decay', 0.00005,
                           'The value of the weight decay for training with weight l2 loss')
 
@@ -98,7 +97,7 @@ def main(unused_argv):
     checkpoints_dir = os.path.join(FLAGS.checkpoints_dir, FLAGS.model_type)
 
     if FLAGS.model_type == 'hourglass':
-        model = Hourglassv2(is_use_bn=True, num_keypoints=17)
+        model = Hourglass(is_use_bn=True, num_keypoints=17)
 
         resize = (128, 96)
 

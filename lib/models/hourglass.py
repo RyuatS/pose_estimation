@@ -28,7 +28,9 @@ class Hourglass(ParentFCN):
             # # 16x12x512 => 32x24x256
             ('deconv2', {'filter_shape': [3, 3, 1024, 2048], 'strides': [1, 2, 2, 1], 'output_shape': [None, 32, 24, 1024]}),
             ('conv2_1', {'filter_shape': [3, 3, 1024, 512], 'strides': [1, 1, 1, 1]}),
-            ('conv2_2', {'filter_shape': [3, 3, 512, 256], 'strides': [1, 1, 1, 1], 'residual': 'backbone/resnet_v1_50/block1'}),
+            ('conv2_2', {'filter_shape': [3, 3, 512, 256],  'strides': [1, 1, 1, 1]}),
+            ('residual1', {'residual': 'backbone/resnet_v1_50/block1'}),
+            # ('conv2_2', {'filter_shape': [3, 3, 512, 256], 'strides': [1, 1, 1, 1], 'residual': 'backbone/resnet_v1_50/block1'}),
 
             # 32x24x256 => 64x48x128
             ('deconv3', {'filter_shape': [3, 3, 256, 256], 'strides': [1, 2, 2, 1], 'output_shape': [None, 64, 48, 256]}),
