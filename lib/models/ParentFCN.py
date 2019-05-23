@@ -297,7 +297,7 @@ class ParentFCN:
         return activation
 
 
-    def perform_conv(self, input, key, is_training):
+    def perform_conv(self, input, key, param_dict, is_training):
         """
         perform convolution to input.
 
@@ -305,26 +305,28 @@ class ParentFCN:
         2) call conv2d function with parameter.
 
         Args:
-            input: input tensor. [batch, height, width, channel]
-            key: self.model_structure's key.
+            input       : input tensor. [batch, height, width, channel]
+            key         : key.
+            param_dict  : parameter_dictionary.
+            is_training : whether train or not.
         Returns:
             output performed convolution.
         """
 
-        filter_shape = self.model_structure[key]['filter_shape']
-        strides = self.model_structure[key]['strides']
-        if 'dilations' in self.model_structure[key].keys():
-            dilations = self.model_structure[key]['dilations']
+        filter_shape = param_dict['filter_shape']
+        strides = param_dict['strides']
+        if 'dilations' in param_dict.keys():
+            dilations = param_dict['dilations']
         else:
             dilations = None
 
-        if 'activation' in self.model_structure[key].keys():
-            activation = self.model_structure[key]['activation']
+        if 'activation' in param_dict.keys():
+            activation = param_dict['activation']
         else:
             activation = ParentFCN.DEFAULT_ACTIVATION
 
-        if 'dropout' in self.model_structure[key].keys():
-            keep_prob = self.model_structure[key]['dropout']
+        if 'dropout' in param_dict.keys():
+            keep_prob = param_dict['dropout']
         else:
             keep_prob = 1.0
 
@@ -354,7 +356,7 @@ class ParentFCN:
         return output
 
 
-    def perform_deconv(self, input, key, is_training):
+    def perform_deconv(self, input, key, param_dict, is_training):
         """
         perform deconvolution to input.
 
@@ -362,19 +364,19 @@ class ParentFCN:
         2) call deconv2d function with parameter.
 
         Args:
-            input: input tensor. [batch, height, width, channel]
-            key: self.model_structure's key.
-            is_training: whether now training or not.
+            input       : input tensor. [batch, height, width, channel]
+            param_dict  : parameter_dictionary.
+            is_training : whether now training or not.
         Returns:
             output performed deconvolution.
         """
 
         # get deconvolution parameter.
-        filter_shape = self.model_structure[key]['filter_shape']
-        strides = self.model_structure[key]['strides']
-        output_shape = self.model_structure[key]['output_shape']
-        if 'activation' in self.model_structure[key].keys():
-            activation = self.model_structure[key]['activation']
+        filter_shape = param_dict['filter_shape']
+        strides = param_dict['strides']
+        output_shape = param_dict['output_shape']
+        if 'activation' in param_dict.keys():
+            activation = param_dict['activation']
         else:
             activation = ParentFCN.DEFAULT_ACTIVATION
         # if output_shape[0] is None:
@@ -409,7 +411,7 @@ class ParentFCN:
         return output
 
 
-    def perform_backbone(self, input, key, is_training):
+    def perform_backbone(self, input, key, param_dict, is_training):
         """
         build backbone and input data to backbone net.
         This function does following steps.
@@ -418,16 +420,16 @@ class ParentFCN:
 
         Args:
             input       : pre_layer's data.
-            key         : self.model_structure's key. for taking layer information.
+            param_dict  : parameter_dictionary. for taking layer information.
             is_training : whether train or not you build this model.
         Reuturn:
             backbone's output.
         """
 
         # 1. take layer information
-        net_name = self.model_structure[key]['net']
-        if 'output_stride' in self.model_structure[key].keys():
-            output_stride = self.model_structure[key]['output_stride']
+        net_name = param_dict['net']
+        if 'output_stride' in param_dict.keys():
+            output_stride = param_dict['output_stride']
         else:
             output_stride = 16
 
@@ -477,7 +479,7 @@ class ParentFCN:
         return net
 
 
-    def perform_dense(self, input, key, is_training):
+    def perform_dense(self, input, key, param_dict, is_training):
         """
         perform fully-connected layer to input.
 
@@ -487,16 +489,16 @@ class ParentFCN:
 
         Args:
             input       : input tensor. [batch, nodes]
-            key         : self.model_structure's key.
+            param_dict  : parameter_dictionary.
             is_training : whether now training or not.
         Returns:
             output performed dense.
         """
-        units = self.model_structure[key]['units']
+        units = param_dict['units']
 
         activation = self.get_activation(key)
-        if 'dropout' in self.model_structure[key].keys():
-            keep_prob = self.model_structure[key]['dropout']
+        if 'dropout' in param_dict.keys():
+            keep_prob = param_dict['dropout']
         else:
             keep_prob = 1.0
 
@@ -510,7 +512,7 @@ class ParentFCN:
         return output
 
 
-    def perform_pool(self, input, key, is_training):
+    def perform_pool(self, input, key, param_dict, is_training):
         """
         perform pooling to input.
 
@@ -519,21 +521,23 @@ class ParentFCN:
 
         Args:
             input       : input tensor. [batch, nodes]
-            key         : self.model_structure's key.
+            param_dict  : parameter_dictionary.
             is_training : whether now training or not.
         Returns:
             output performed pooling.
         """
-        strides   = self.model_structure[key]['strides']
-        pool_type = self.model_structure[key]['pool_type']
+        strides   = param_dict['strides']
+        pool_type = param_dict['pool_type']
 
-        if 'kernel' in self.model_structure[key]['kernel']:
-            ksize = self.model_structure[key]['kernel']
+        if 'kernel' in param_dict.keys():
+            ksize = param_dict['kernel']
+        else:
+            ksize = self.DEFAULT_POOL_STRIDES
 
         if pool_type == 'average':
-            output = self.avg_pool(pre_layer, name=key, strides=strides, ksize=ksize)
+            output = self.avg_pool(input, name=key, strides=strides, ksize=ksize)
         elif pool_type == 'max':
-            output = self.max_pool(pre_layer, name=key, strides=strides, ksize=ksize)
+            output = self.max_pool(input, name=key, strides=strides, ksize=ksize)
         else:
             raise ValueError("pool type '{}' is not defined".format(pool_type))
         self.num_params_each_layer[key] = 0
@@ -541,13 +545,13 @@ class ParentFCN:
         return output
 
 
-    def convert_gray(self, input, key, is_training):
+    def convert_gray(self, input, key, param_dict, is_training):
         """
         convert image to grayscale.
 
         Args:
             input       : input tensor. [batch, nodes]
-            key         : self.model_structure's key.
+            param_dict  : parameter_dictionary.
             is_training : Dummy variable. This is not used in this function.
         Returns:
             output converted to grayscale.
@@ -566,13 +570,13 @@ class ParentFCN:
         return output
 
 
-    def flatten(self, input, key, is_training):
+    def flatten(self, input, key, param_dict, is_training):
         """
         do flatten to input.
 
         Args:
             input       : input tensor. [batch, nodes]
-            key         : self.model_structure's key.
+            param_dict  : parameter dictionary.
             is_training : Dummy variable. This is not used in this function.
         Returns:
             output done flatten.
@@ -583,35 +587,35 @@ class ParentFCN:
         return output
 
 
-    def reshape(self, input, key, is_training):
+    def reshape(self, input, key, param_dict, is_training):
         """
         reshape to input.
 
         Args:
             input       : input tensor. [batch, nodes]
-            key         : self.model_structure's key.
+            param_dict  : parameter_dictionary.
             is_training : Dummy variable. This is not used in this function.
         Returns:
             reshaped output.
         """
-        shape = self.model_structure[key]['shape']
+        shape = param_dict['shape']
         output = tf.reshape(input, [-1] + shape)
 
         return output
 
 
-    def concat(self, input, key, is_training):
+    def concat(self, input, key, param_dict, is_training):
         """
-        concatenate input and self.model_structure[key]['concat_from']
+        concatenate input and param_dict['concat_from']
 
         Args:
             input       : input tensor. [batch, nodes]
-            key         : self.model_structure's key.
+            param_dict  : parameter dictionary.
             is_training : Dummy variable. This is not used in this function.
         Returns:
             concatenated output .
         """
-        layer_name = self.model_structure[key]['concat_from']
+        layer_name = param_dict['concat_from']
 
         if layer_name.startswith('backbone'):
             # バックボーンの途中から取り出したい時の処理
@@ -627,18 +631,18 @@ class ParentFCN:
         return output
 
 
-    def residual(self, input, key, is_training):
+    def residual(self, input, key, param_dict, is_training):
         """
-        add input and self.model_structure[key]['residual']
+        add input and param_dict['residual']
 
         Args:
             input       : input tensor. [batch, nodes]
-            key         : self.model_structure's key.
+            param_dict  : parameter dict.
             is_training : Dummy variable. This is not used in this function.
         Returns:
             added output.
         """
-        residual_layer_name = self.model_structure[key]['residual']
+        residual_layer_name = param_dict['residual']
         if residual_layer_name.startswith('backbone'):
             # example) residual_layer_name = 'backbone/resnet_v1_50/block2'
             residual_layer_name = residual_layer_name.split('/')[1:]
@@ -682,7 +686,7 @@ class ParentFCN:
                         layer_func = self.layer_funcs[func_name]
                         break
 
-                self.layers[key] = layer_func(pre_layer, key, is_training=is_training)
+                self.layers[key] = layer_func(pre_layer, key, self.model_structure[key], is_training=is_training)
 
                 pre_layer = self.layers[key]
 
@@ -695,192 +699,7 @@ class ParentFCN:
                 self.visualize_layers()
 
             return pre_layer
-    '''
-    def build(self, input_img, name, is_training, reuse=False, visualize=False, batch_norm_reuse=False):
-        """
-        Args:
-            input_img: rgb image batch.
-            is_training: トレーニング中かどうか
-            batch_norm_reuse: 他の計算グラフに展開中のbatch_normalizationの値を使うか.
-                              これは、トレーニング中のグラフでのbatch_normalizationの値が使われていて、
-                              それとは他に同じ値を使いたい時に用いる。
 
-        Returns:
-            predict: 最後の層の予測
-        """
-        # batch_size = tf.shape(input_img)[0]
-
-        # pre-trainedモデルを使う場合にそれぞれの変数saverを作る必要があるから
-        savers = {}
-
-        with tf.name_scope(name) as scope:
-            if reuse:
-                scope.reuse_variables()
-            self.layers = OrderedDict()
-
-            # if len(input_img.get_shape().as_list()) > 2:
-            #     mean, var = tf.nn.moments(input_img, axes=[1, 2])
-            #     self.input_img = (input_img - mean) / tf.sqrt(var)
-            # else:
-            self.input_img = input_img
-            # 一つ前の層のデータ
-            self.layers['input'] = self.input_img
-            self.num_params_each_layer['input'] = 0
-            pre_layer = self.input_img
-            num_node = 4*4*512
-
-            # self.model_structureで層を判断し、処理を行う
-            for key in self.model_structure.keys():
-                # model_structureのキー名で処理を決める。
-                # 'conv'      => perform 'convolutional'
-                # 'deconv'    => perform 'deconvolutional'
-                # 'Dense'     => perform 'fully connected'
-                # 'tf.topool' => perform 'pooling'
-                # 'gray'      => perform 'gray'
-                # 'GAP'       => perform 'global average pooling'
-                # 'Flatten'   => perform 'flatten'
-                # 'reshape'   => perform 'reshape'
-                # 'backbone'  => build backbone and input data to backbone.
-                # else => raise Error
-
-                # print('pre_layer.shape: {}, key: {}'.format(pre_layer.get_shape(), key))
-                if key.startswith('conv'):
-                    self.layers[key] = self.perform_conv(pre_layer, key, is_training)
-
-                    # calculate number of parameters
-                    # num_params = 0
-                    # num_params = (self.weights[key].get_shape().as_list()[0] *
-                    #              self.weights[key].get_shape().as_list()[1] *
-                    #              self.weights[key].get_shape().as_list()[2] *
-                    #              self.weights[key].get_shape().as_list()[3])
-                    # num_params += self.biases[key].get_shape().as_list()[0]
-                    # self.num_params_each_layer[key] = num_params
-
-
-                elif key.startswith('deconv'):
-                    self.layers[key] = self.perform_deconv(pre_layer, key, is_training)
-
-                    # # calculate number of parameters
-                    # num_params = 0
-                    # num_params = (self.weights[key].get_shape().as_list()[0] *
-                    #              self.weights[key].get_shape().as_list()[1] *
-                    #              self.weights[key].get_shape().as_list()[2] *
-                    #              self.weights[key].get_shape().as_list()[3])
-                    # num_params += self.biases[key].get_shape().as_list()[0]
-                    # self.num_params_each_layer[key] = num_params
-
-                elif key.startswith('Dense'):
-                    units = self.model_structure[key]['units']
-                    if 'activation' in self.model_structure[key].keys():
-                        activation = self.model_structure[key]['activation']
-                    else:
-                        activation = 'relu'
-                    if 'dropout' in self.model_structure[key].keys():
-                        keep_prob = self.model_structure[key]['dropout']
-                    else:
-                        keep_prob = 1.0
-                    self.layers[key] = self.Dense(pre_layer,
-                                                  key, units,
-                                                  activation=activation,
-                                                  keep_prob=keep_prob,
-                                                  is_training=is_training)
-
-                elif key.startswith('pool'):
-                    strides = self.model_structure[key]['strides']
-                    pool_type = self.model_structure[key]['pool_type']
-                    if pool_type == 'average':
-                        self.layers[key] = self.avg_pool(pre_layer, name=key, strides=strides)
-                    elif pool_type == 'max':
-                        self.layers[key] = self.max_pool(pre_layer, name=key, strides=strides)
-                    self.num_params_each_layer[key] = 0
-
-                elif key.startswith('gray'):
-                    if pre_layer.get_shape()[3] == 6:
-                        image1, image2 = tf.split(pre_layer, [3, 3], axis=3)
-                        gray1 = tf.image.rgb_to_grayscale(image1)
-                        gray2 = tf.image.rgb_to_grayscale(image2)
-                        self.layers[key] = tf.concat([gray1, gray2], axis=3)
-                    else:
-                        self.layers[key] = tf.image.rgb_to_grayscale(pre_layer)
-
-                    self.num_params_each_layer[key] = 0
-
-                elif key.startswith('GAP'):
-                    b, h, w, c = pre_layer.get_shape().as_list()
-                    ksize = [1, h, w, 1]
-                    gap = self.avg_pool(pre_layer, key, ksize=ksize)
-                    self.layers[key] = tf.reshape(gap, [-1, c])
-
-                    self.num_params_each_layer[key] = 0
-
-                elif key.startswith('Flatten'):
-                    self.layers[key] = tf.layers.Flatten()(pre_layer)
-
-                    self.num_params_each_layer[key] = 0
-
-                elif key.startswith('reshape'):
-                    shape = self.model_structure[key]['shape']
-                    self.layers[key] = tf.reshape(pre_layer, [-1] + shape)
-
-                    self.num_params_each_layer[key] = 0
-
-                elif key.startswith('backbone'):
-                    self.layers[key] = self.perform_backbone(pre_layer, key, is_training=is_training)
-                    net_name = self.model_structure[key]['net']
-
-                    # var_list = tf.contrib.framework.get_variables_to_restore(include=[net_name])
-                    #
-                    # # calculate number of parameters.
-                    # num_param = 0
-                    # for var in var_list:
-                    #     shape = var.get_shape().as_list()
-                    #     param = 1
-                    #     for dim in shape:
-                    #         param *= dim
-                    #     num_param += param
-                    # self.num_params_each_layer[key] = num_param
-                    # self.layers[key] = net
-
-                else:
-                    raise ValueError("model structure's key is not correct")
-
-                # skipレイヤーがあれば、そのレイヤーからの値をもってきて、合体させる
-                if 'concat_from' in self.model_structure[key].keys():
-                    # どこのレイヤーから持ってくるか
-                    layer_name = self.model_structure[key]['concat_from']
-                    if layer_name.startswith('backbone'):
-                        # example) residual_layer_name = 'backbone/resnet_v1_50/block2'
-                        residual_layer_name = residual_layer_name.split('/')[1:]
-                        residual_layer_name = '/'.join(residual_layer_name)
-                        layer_values = self.layers[layer_name]
-                    else:
-                        layer_values = self.layers[layer_name]
-                    self.layers[key] = tf.concat([self.layers[key], layer_values], axis=3)
-
-                # residualレイヤーがあれば、そのレイヤーからの値を持ってきて、足し合わせる
-                if 'residual' in self.model_structure[key].keys():
-                    residual_layer_name = self.model_structure[key]['residual']
-                    if residual_layer_name.startswith('backbone'):
-                        # example) residual_layer_name = 'backbone/resnet_v1_50/block2'
-                        residual_layer_name = residual_layer_name.split('/')[1:]
-                        residual_layer_name = '/'.join(residual_layer_name)
-                        residual_layer_values = self.backbone_end_points[residual_layer_name]
-                    else:
-                        residual_layer_values = self.layers[residual_layer_name]
-                    self.layers[key] = tf.add(self.layers[key], residual_layer_values)
-
-                pre_layer = self.layers[key]
-
-
-            # for key in self.weights.keys():
-            #     tf.summary.histogram('histogram-' + key, self.weights[key])
-
-
-        if visualize:
-            self.visualize_layers()
-
-        return pre_layer, savers
-    '''
 
     def visualize_layers(self):
         """
