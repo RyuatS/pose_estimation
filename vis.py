@@ -19,9 +19,10 @@ import numpy as np
 import time
 
 # user packages
-from lib.models.hourglass import Hourglass
+from lib.models.reshourglass import ResHourglass
 from lib.core.config import BACKBONE_NAME_LIST
 import lib.utils.helper as helper
+from lib.models.hourglass import Hourglass
 from lib.models.stacked_hourglass import StackedHourglass
 
 tf.logging.set_verbosity(tf.logging.FATAL)
@@ -48,7 +49,7 @@ tf.app.flags.DEFINE_boolean('is_measure',
 
 tf.app.flags.DEFINE_enum('model_type',
                            'hourglass',
-                           ['hourglass', 'stacked'],
+                           ['reshourglass', 'hourglass', 'stacked'],
                            'model type which should be defined ./lib/models/')
 
 
@@ -64,13 +65,17 @@ def main(argv):
 
         resize = (128, 96)
 
+    elif FLAGS.model_type == 'reshourglass':
+        model = ResHourglass(is_use_bn=True, num_keypoints=17)
+        resize = (64, 48)
+
     elif FLAGS.model_type == 'stacked':
         model = StackedHourglass(is_use_bn=True, num_keypoints=17)
 
         resize = (64, 48)
 
 
-    logits, _ = model.build(image, 'Hourglass', is_training=False, visualize=True)
+    logits   = model.build(image, 'Hourglass', is_training=False, visualize=True)
 
     logits = tf.nn.sigmoid(logits)
 

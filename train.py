@@ -26,10 +26,10 @@ import sys
 from lib.utils import helper
 from data.dataset_generator import Dataset
 from lib.models.reshourglass import ResHourglass
+from lib.models.stacked_hourglass import StackedHourglass
 from lib.models.hourglass import Hourglass
 from lib.core.config import BACKBONE_NAME_LIST
 
-from lib.models.stacked_hourglass0 import StackedHourglassv2
 
 tf.logging.set_verbosity(tf.logging.FATAL)
 
@@ -102,11 +102,12 @@ def main(unused_argv):
         resize = (128, 96)
 
     elif FLAGS.model_type == 'hourglass':
-        model = StackedHourglass(is_use_bn=True, num_keypoints=17)
+        model = Hourglass(is_use_bn=True, num_keypoints=17)
 
         resize = (64, 48)
     elif FLAGS.model_type == 'stacked':
-        model = StackedHourglassv2(is_use_bn=True, num_keypoints=17)
+        model = StackedHourglass(is_use_bn=True, num_keypoints=17)
+        resize = (64,48)
 
     batch_size = FLAGS.batch_size
     input_size = (256, 192)
