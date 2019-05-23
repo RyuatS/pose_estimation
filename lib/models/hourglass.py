@@ -10,10 +10,10 @@
 from .ParentFCN import ParentFCN
 from collections import OrderedDict
 
-class Hourglass(ParentFCN):
+class ResHourglass(ParentFCN):
     def __init__(self, is_use_bn, num_keypoints=17):
         super().__init__(is_use_bn=True)
-        self._model_type = 'Hour Glass Net'
+        self._model_type = 'Res Hour Glass Net'
 
         self.model_structure = OrderedDict([
             # input > 256x192
