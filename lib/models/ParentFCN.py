@@ -686,6 +686,10 @@ class ParentFCN:
                         layer_func = self.layer_funcs[func_name]
                         break
 
+                if 'input' in self.model_structure[key].keys():
+                    input_layer_name = self.model_structure[key]['input']
+                    pre_layer = self.layers[input_layer_name]
+                    
                 self.layers[key] = layer_func(pre_layer, key, self.model_structure[key], is_training=is_training)
 
                 pre_layer = self.layers[key]

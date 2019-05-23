@@ -15,9 +15,12 @@ class StackedHourglass(ParentFCN):
         super().__init__(is_use_bn=True)
         self._model_type = 'Hour Glass Net'
 
+        self.layer_funcs['preprocess'] = self.preprocess
+
         self.model_structure = OrderedDict([
             # input > 256x192
             # 256x192x3 => 128x96x256
+            ('preprocess', {}),
             ('conv1', {'filter_shape': [7, 7, 3, 256], 'strides': [1, 2, 2, 1]}),
             # 128x96x256 => 64x48x256
             ('pool1', {'strides': [1, 2, 2, 1], 'pool_type': 'max'}),
@@ -72,3 +75,8 @@ class StackedHourglass(ParentFCN):
             # HourGlass2
 
         ])
+
+
+    def preprocess(self, input, key, param_dict, is_training):
+
+        return input / 255
